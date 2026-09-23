@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  owner
+  admin
+  member
+}
+
+model User {
+  id               String         @id @default(uuid()) @db.Uuid
+  email            String         @unique // lowercased on write
+  name             String?
+  isDemo           Boolean        @default(false) // only seed-demo sets this (INV-27)
+  totpSecretSealed String? // sealSecret(base32, 'totp') — never plaintext (INV-25)
+  totpLastStep     BigInt? // replay block (INV-24)
+  totpEnrolledAt   DateTime?      @db.Timestamptz(6)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(6)
+  memberships      Membership[]
+  sessions         Session[]
+  loginTokens      LoginToken[]
+  recoveryCodes    RecoveryCode[]
+}
+
+/// Magic-link token. Only sha256 stored; single use; 15 min.
+model LoginToken {
+  hash      String       @id
+  purpose   TokenPurpose // login | signup | email_change
+  email     String // lowercased; the address the link was sent to
+  userId    String?      @db.Uuid // null only for purpose=signup (D-10)
+  user      User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @db.Timestamptz(6)
+  expiresAt DateTime     @db.Timestamptz(6)
+  usedAt    DateTime?    @db.Timestamptz(6)
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+}
+
+enum TokenPurpose {
+  login
+  signup
+  email_change
+}
+
+/// Signed-in session. Cookie holds the raw token; only sha256 stored.
+model Session {
+  hash      String    @id
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authAt    DateTime  @db.Timestamptz(6) // when the link was redeemed (INV-26 freshness)
+  mfaAt     DateTime? @db.Timestamptz(6) // when TOTP was verified in this session
+  expiresAt DateTime  @db.Timestamptz(6)
+  createdAt DateTime  @db.Timestamptz(6)
+
+  @@index([userId])
+}
+
+model RecoveryCode {
+  hash   String    @id // sha256 of a 10-char random code
+  userId String    @db.Uuid
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedAt DateTime? @db.Timestamptz(6)
+
+  @@index([userId])
+}
+
+model Org {
+  id             String          @id @default(uuid()) @db.Uuid
+  slug           String          @unique
+  name           String
+  createdAt      DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(6)
+  memberships    Membership[]
+  invites        Invite[]
+  shareLinks     ShareLink[]
+  // module back-relations: each line ends in its module marker (spec §4)
+  billingAccount BillingAccount? // billing
+  outbox         Outbox[] // notifications
+}
+
+model Membership {
+  orgId     String   @db.Uuid
+  userId    String   @db.Uuid
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @default(member)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@id([orgId, userId])
+  @@index([userId])
+}
+
+model Invite {
+  id          String    @id @default(uuid()) @db.Uuid
+  orgId       String    @db.Uuid
+  org         Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  email       String
+  role        Role      @default(member)
+  tokenHash   String    @unique
+  invitedById String?   @db.Uuid
+  expiresAt   DateTime  @db.Timestamptz(6) // 7 days
+  acceptedAt  DateTime? @db.Timestamptz(6)
+  revokedAt   DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([orgId, email])
+}
+
+model ShareLink {
+  id           String    @id @default(uuid()) @db.Uuid
+  orgId        String    @db.Uuid
+  org          Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  resourceType String
+  resourceId   String    @db.Uuid
+  tokenHash    String    @unique
+  createdById  String?   @db.Uuid
+  expiresAt    DateTime  @db.Timestamptz(6) // required — no immortal links
+  revokedAt    DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([orgId, resourceType, resourceId])
+}
+
+model RateLimit {
+  key         String // "link:ip:1.2.3.4", "link:email:a@b.c", "totp:user:<id>"
+  windowStart DateTime @db.Timestamptz(6)
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+}
+
+model AuditEvent {
+  id          BigInt   @id @default(autoincrement())
+  orgId       String?  @db.Uuid // no FK: survives org deletion
+  actorUserId String?  @db.Uuid // no FK: survives user deletion
+  action      String // "member.role_changed"
+  targetType  String?
+  targetId    String?
+  data        Json?
+  at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([orgId, at])
+}
+
+// migration SQL (hand-written): BEFORE UPDATE OR DELETE ON "AuditEvent" → RAISE EXCEPTION (INV-19)
+
+/// Non-production only: what the email transport "sent". Powers e2e (INV-17) and the demo inbox.
+model CapturedMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  to        String
+  subject   String
+  body      String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([to, createdAt])
+}
