@@ -11,9 +11,9 @@ if (!process.env.DATABASE_URL) {
 // Unset during `prisma generate` (CI, postinstall), which does not connect.
 const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? '';
 // INV-18: a mistyped env pointing a migration at a cloud database is the accident
-// this catches. Reaching one on purpose has to be typed: FOUNDATION_ALLOW_CLOUD_DB=1.
-if (!process.env.FOUNDATION_ALLOW_CLOUD_DB && /neon\.tech|rds\.amazonaws|supabase\.co/.test(url)) {
-  throw new Error('Refusing a cloud database. Set FOUNDATION_ALLOW_CLOUD_DB=1 for a deliberate deploy.');
+// this catches. Deploys set VERCEL_ENV; anything else reaching one must type ALLOW_CLOUD_DB=1.
+if (!process.env.VERCEL_ENV && process.env.ALLOW_CLOUD_DB !== '1' && /neon\.tech|rds\.amazonaws|supabase\.co/.test(url)) {
+  throw new Error('Refusing a cloud database. Set ALLOW_CLOUD_DB=1 to reach one deliberately (INV-18).');
 }
 
 export default defineConfig({

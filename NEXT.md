@@ -17,7 +17,9 @@ section and in `audit/<repo>.md` here.
 4. ~~talk4me~~: **deferred to the end of the queue** (Shane, 2026-09-23). See item 8.
 5. **storage business: SEC-01, SEC-02** (webhook re-apply; cross-facility echo). Model: Opus (money). The repo was made private on 2026-09-23 because of these findings; make it public again once both are fixed.
 6. ~~design bridge~~: dead project (the API it needed cost too much), 2026-09-23. The repo stays private. SEC items dropped.
-7. **Then foundation M0** here: `IMPLEMENTATION_PLAN.md` §1 (repo, scaffold, spikes S1–S3). Model: Sonnet.
+7. ~~**Foundation M0**~~ **Done** 2026-09-23 (Shane chose to run it before storage). The repo `shanelabountyai/saas-foundation` is **private**.
+   The scaffold is pushed, and spikes S1–S3 all passed (the results are in spec §0). CI is lint + typecheck. Port 4100 is claimed in `~/.claude/CLAUDE.md`.
+   **Next here: M1, the core platform** (`IMPLEMENTATION_PLAN.md` §1). Model: Sonnet. Before M3, Shane confirms or overrides **D-13**: clone app tables add their back-relations to `core.prisma`, each line ending in `// app`.
 8. **talk4me: SEC-01 HIGH** (deferred here from item 4 on 2026-09-23). Cap `api/tts.ts` at about 500 chars, allowlist voice ids,
    add a Vercel Firewall rule. Model: Sonnet. After it is fixed, make the `talk4me` repo public.
 
