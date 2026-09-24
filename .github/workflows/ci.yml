@@ -39,7 +39,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: createdb saas_foundation_test
+      - run: npx prisma migrate deploy
       - run: npx vitest run
-      # Production build, served — the way it ships. The specs use Playwright's request
-      # client, so no browser download is needed until a spec drives a page.
+      # Production build, served — the way it ships. login.spec.ts drives a real page.
+      - run: npx playwright install --with-deps chromium
       - run: npx playwright test

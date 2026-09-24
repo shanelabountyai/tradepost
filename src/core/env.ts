@@ -11,6 +11,11 @@ export const envSchema = z.object({
   APP_URL: z.url(),
   ALLOW_CLOUD_DB: z.enum(['1']).optional(), // INV-18 escape hatch
   VERCEL_ENV: z.string().optional(), // set by Vercel; marks a deployed environment
+  // Email (spec §7d). Real sends only in production or with a sandbox address.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(1).optional(), // "App <no-reply@example.com>"
+  EMAIL_SANDBOX_TO: z.email().optional(), // outside production, really send, but only here
+  EMAIL_ENABLED: z.enum(['0', '1']).optional(), // '0' = kill switch: nothing is sent or captured
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -21,7 +26,12 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     const keys = [...new Set(result.error.issues.map((i) => i.path.join('.')))].join(', ');
     throw new Error(`Invalid environment: ${keys}`); // names only — never echo values
   }
-  return result.data;
+  const e = result.data;
+  // INV-13: production with no provider would silently drop every sign-in link.
+  if (e.VERCEL_ENV === 'production' && e.EMAIL_ENABLED !== '0' && !(e.RESEND_API_KEY && e.EMAIL_FROM)) {
+    throw new Error('Invalid environment: RESEND_API_KEY, EMAIL_FROM (required in production)');
+  }
+  return e;
 }
 
 export const env = parseEnv(process.env);

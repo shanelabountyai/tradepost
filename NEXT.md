@@ -20,8 +20,14 @@ section and in `audit/<repo>.md` here.
 7. ~~**Foundation M0**~~ **Done** 2026-09-23 (Shane chose to run it before storage). The repo `shanelabountyai/saas-foundation` is **private**.
    The scaffold is pushed, and spikes S1–S3 all passed (the results are in spec §0). CI is lint + typecheck. Port 4100 is claimed in `~/.claude/CLAUDE.md`.
    **M1 core platform: done** 2026-09-23 (env/clock/log/db + guard, headers, health, error pages, vitest, prod-build e2e, CI; INV-14, 15 (public + api), 18, 20 green).
-   No migration exists yet (schema is unmigrated; `/api/health` only runs `SELECT 1`). M2 generates the first one when it adds `LoginToken.purpose`/`email`.
-   **Next here: M2, Auth** (`IMPLEMENTATION_PLAN.md` §1). Model: **Opus** (security-critical). Local test DB `saas_foundation_test` exists. Before M3, Shane confirms or overrides **D-13**: clone app tables add their back-relations to `core.prisma`, each line ending in `// app`.
+   **M2 Auth: done** 2026-09-23 in one session (est. 2). INV-05/07/09 (scoped to M2), 13, 15 (signed-in), 17, 23, 24, 25, 26 (TOTP) are green,
+   and each was mutation-checked red. The first migrations exist: core, billing and notifications, each separate (D-14d). Build choices are in spec **D-14**.
+   **Next here: M3, Tenancy + authz** (`IMPLEMENTATION_PLAN.md` §1). Model: **Opus**. Carry-overs from M2:
+   - The plain `'use server'` exports in `src/app/(public)/login/mfa/actions.ts` and `src/app/account/security/actions.ts` must be
+     rebuilt on S2's **`userAction`** twin (spec S2 rule 4), or the INV-01 harness fails them.
+   - Sign-in lands on `/account/security`. M3 routes a user with no memberships to `/onboarding` instead (`src/app/(public)/login/redeem/route.ts`).
+   - INV-22 (owner/admin must be MFA'd) belongs in `requireOrg`. `disableTotp` already refuses owners and admins.
+   - Before M3, Shane confirms or overrides **D-13**: clone app tables add their back-relations to `core.prisma`, each line ending in `// app`.
 8. **talk4me: SEC-01 HIGH** (deferred here from item 4 on 2026-09-23). Cap `api/tts.ts` at about 500 chars, allowlist voice ids,
    add a Vercel Firewall rule. Model: Sonnet. After it is fixed, make the `talk4me` repo public.
 

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-// INV-15. Scope so far: a public page and the API. The signed-in route lands in M2/M3
+// INV-15. Public page and API here; the signed-in route is checked in login.spec.ts (M2)
 // and the share route in M4; each adds its path here.
 for (const path of ['/', '/api/health']) {
   test(`INV-15 global headers on ${path}`, async ({ request }) => {

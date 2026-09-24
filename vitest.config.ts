@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   test: {
     include: ['tests/**/*.test.ts'],
+    setupFiles: ['tests/helpers/next.ts'],
     fileParallelism: false, // one local Postgres, shared state
     hookTimeout: 20_000,
     testTimeout: 20_000,
