@@ -9,6 +9,7 @@ export const envSchema = z.object({
   DIRECT_URL: z.string().min(1).optional(), // migrations only; falls back to DATABASE_URL
   AUTH_SECRET: z.string().min(32), // HKDF root for sealed secrets and token hashing
   APP_URL: z.url(),
+  CRON_SECRET: z.string().min(16).optional(), // Vercel Cron sends it as a bearer; unset = /api/cron refuses (INV-11)
   ALLOW_CLOUD_DB: z.enum(['1']).optional(), // INV-18 escape hatch
   VERCEL_ENV: z.string().optional(), // set by Vercel; marks a deployed environment
   // Email (spec §7d). Real sends only in production or with a sandbox address.

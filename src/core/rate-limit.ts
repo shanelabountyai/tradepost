@@ -4,7 +4,8 @@ import { db } from '@/core/db';
 // Fixed-window counters in Postgres (INV-09), so a limit survives a cold start and holds
 // across every serverless instance. One atomic upsert per hit: no read-then-write race.
 // ponytail: fixed window allows up to 2× the limit across a window edge; switch to a sliding
-// window if that burst ever matters. Old rows are never swept; add a delete to /api/cron (M5).
+// window if that burst ever matters.
+// Old rows are swept hourly by /api/cron via `sweepRateLimits`.
 export const LIMITS = {
   linkPerIp: { limit: 10, windowMs: 15 * 60_000 },
   linkPerEmail: { limit: 5, windowMs: 15 * 60_000 },
@@ -25,4 +26,10 @@ export async function hit(key: string, { limit, windowMs }: Limit): Promise<bool
     ON CONFLICT ("key", "windowStart") DO UPDATE SET "count" = "RateLimit"."count" + 1
     RETURNING "count"`;
   return row!.count <= limit;
+}
+
+/** Deletes counters whose window ended over a day ago; nothing reads them once the window passes. */
+export async function sweepRateLimits(): Promise<number> {
+  const { count } = await db.rateLimit.deleteMany({ where: { windowStart: { lt: new Date(now().getTime() - 86_400_000) } } });
+  return count;
 }
