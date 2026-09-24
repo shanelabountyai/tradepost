@@ -23,6 +23,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+          TZ: America/Chicago # a non-UTC server zone, like the laptop's, so the db timezone test can go red here
         ports: ['5432:5432']
         options: >-
           --health-cmd="pg_isready -U postgres"

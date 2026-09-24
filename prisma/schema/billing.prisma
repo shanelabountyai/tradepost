@@ -5,6 +5,7 @@ model BillingAccount {
   plan             String?
   status           String? // mirrors Stripe subscription.status
   currentPeriodEnd DateTime? @db.Timestamptz(6)
+  stripeEventAt    DateTime? @db.Timestamptz(6) // created time of the last event applied; older ones are skipped
   updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
 }
 

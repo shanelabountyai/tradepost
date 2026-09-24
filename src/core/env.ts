@@ -17,6 +17,10 @@ export const envSchema = z.object({
   EMAIL_FROM: z.string().min(1).optional(), // "App <no-reply@example.com>"
   EMAIL_SANDBOX_TO: z.email().optional(), // outside production, really send, but only here
   EMAIL_ENABLED: z.enum(['0', '1']).optional(), // '0' = kill switch: nothing is sent or captured
+  // Billing module (spec §4). Unset key = the mock provider; unset webhook secret = the webhook refuses (503).
+  STRIPE_SECRET_KEY: z.string().min(1).optional(), // billing
+  STRIPE_PRICE_ID: z.string().min(1).optional(), // billing
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(), // billing
 });
 
 export type Env = z.infer<typeof envSchema>;

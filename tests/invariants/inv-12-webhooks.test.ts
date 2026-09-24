@@ -1,0 +1,139 @@
+import { createHmac } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { now } from '@/core/clock';
+import { db } from '@/core/db';
+import { stripeProvider } from '@/modules/billing/provider';
+import { handlers, receiveStripeWebhook, type StripeEvent } from '@/modules/billing/webhook';
+import { resetAuthTables } from '../helpers/auth';
+import { makeOrg } from '../helpers/org';
+
+beforeEach(resetAuthTables);
+afterEach(() => vi.restoreAllMocks());
+
+const SECRET = 'whsec_test_secret';
+const sign = (raw: string, t = Math.floor(now().getTime() / 1000), secret = SECRET) =>
+  `t=${t},v1=${createHmac('sha256', secret).update(`${t}.${raw}`).digest('hex')}`;
+
+let seq = 0;
+const subEvent = (orgId: string, o: { status?: string; price?: string; created?: number; type?: string; id?: string } = {}): StripeEvent => ({
+  id: o.id ?? `evt_${++seq}`,
+  type: o.type ?? 'customer.subscription.updated',
+  created: o.created ?? 1_800_000_000,
+  data: {
+    object: {
+      customer: 'cus_1',
+      status: o.status ?? 'active',
+      metadata: { orgId },
+      items: { data: [{ current_period_end: 1_802_000_000, price: { id: o.price ?? 'price_pro' } }] },
+    },
+  },
+});
+const deliver = (e: StripeEvent | string, sig?: string) => {
+  const raw = typeof e === 'string' ? e : JSON.stringify(e);
+  return receiveStripeWebhook(raw, sig ?? sign(raw), SECRET);
+};
+const account = (orgId: string) => db.billingAccount.findUnique({ where: { orgId } });
+
+describe('INV-12 webhooks verify the raw body and timestamp window', () => {
+  it('no secret configured: 503, nothing written', async () => {
+    const raw = JSON.stringify(subEvent((await makeOrg()).id));
+    expect((await receiveStripeWebhook(raw, sign(raw), undefined)).status).toBe(503);
+    expect(await db.stripeEvent.count()).toBe(0);
+  });
+
+  it.each([
+    ['missing signature', (raw: string) => [raw, null]],
+    ['wrong secret', (raw: string) => [raw, sign(raw, undefined, 'whsec_other')]],
+    ['tampered body', (raw: string) => [raw.replace('active', 'canceled'), sign(raw)]],
+    ['stale timestamp', (raw: string) => [raw, sign(raw, Math.floor(now().getTime() / 1000) - 301)]],
+    ['future timestamp', (raw: string) => [raw, sign(raw, Math.floor(now().getTime() / 1000) + 301)]],
+    ['garbage header', (raw: string) => [raw, 't=abc,v1=00']],
+  ] as const)('%s: 400, nothing written', async (_, bad) => {
+    const org = await makeOrg();
+    const [raw, sig] = bad(JSON.stringify(subEvent(org.id))) as [string, string | null];
+    expect((await receiveStripeWebhook(raw, sig, SECRET)).status).toBe(400);
+    expect(await db.stripeEvent.count()).toBe(0);
+    expect(await account(org.id)).toBeNull();
+  });
+
+  it('a valid signature among several v1 values is accepted', async () => {
+    const org = await makeOrg();
+    const raw = JSON.stringify(subEvent(org.id));
+    expect((await receiveStripeWebhook(raw, `${sign(raw)},v1=${'0'.repeat(64)}`, SECRET)).status).toBe(200);
+  });
+});
+
+describe('INV-12 a failed delivery is re-applied; a true duplicate is a no-op', () => {
+  it('first apply throws → 500; redelivery applies; a third changes nothing', async () => {
+    const org = await makeOrg();
+    const e = subEvent(org.id);
+    vi.spyOn(handlers, 'customer.subscription.updated').mockRejectedValueOnce(new Error('db blip'));
+
+    const first = await deliver(e);
+    expect(first.status).toBe(500);
+    expect(await db.stripeEvent.findUnique({ where: { id: e.id } })).toMatchObject({ processedAt: null, error: 'db blip' });
+    expect(await account(org.id)).toBeNull();
+
+    expect((await deliver(e)).status).toBe(200); // SB answered "duplicate" here and lost the event
+    const applied = await account(org.id);
+    expect(applied).toMatchObject({ status: 'active', plan: 'price_pro', stripeCustomerId: 'cus_1' });
+    expect(await db.stripeEvent.findUnique({ where: { id: e.id } })).toMatchObject({ error: null, processedAt: expect.any(Date) });
+
+    const third = await deliver(e);
+    expect(third).toEqual({ status: 200, body: { received: true, duplicate: true } });
+    expect(await account(org.id)).toEqual(applied);
+  });
+
+  it('concurrent deliveries of one event apply it once, fresh or after a failure', async () => {
+    const org = await makeOrg();
+    const spy = vi.spyOn(handlers, 'customer.subscription.updated');
+    const fresh = subEvent(org.id);
+    expect((await Promise.all([deliver(fresh), deliver(fresh), deliver(fresh)])).map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // The row already exists unprocessed, so only the event row's lock serialises the retries.
+    const retried = subEvent(org.id, { created: 1_800_000_001 });
+    spy.mockClear().mockRejectedValueOnce(new Error('db blip'));
+    expect((await deliver(retried)).status).toBe(500);
+    spy.mockImplementation(async (...a) => {
+      await new Promise((r) => setTimeout(r, 50)); // hold the transaction open so the retries overlap
+      return handlers['customer.subscription.created']!(...a);
+    });
+    expect((await Promise.all([deliver(retried), deliver(retried), deliver(retried)])).map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(spy).toHaveBeenCalledTimes(2); // the failed apply, then exactly one re-apply
+  });
+
+  it('an older event delivered late does not overwrite a newer state', async () => {
+    const org = await makeOrg();
+    await deliver(subEvent(org.id, { status: 'canceled', created: 1_800_000_100, type: 'customer.subscription.deleted' }));
+    await deliver(subEvent(org.id, { status: 'active', created: 1_800_000_000 }));
+    expect(await account(org.id)).toMatchObject({ status: 'canceled' });
+    await deliver(subEvent(org.id, { status: 'active', price: 'price_max', created: 1_800_000_200, type: 'customer.subscription.created' }));
+    expect(await account(org.id)).toMatchObject({ status: 'active', plan: 'price_max' });
+  });
+
+  it('an unhandled type or an unknown org is acknowledged, not retried', async () => {
+    const org = await makeOrg();
+    expect((await deliver({ ...subEvent(org.id), type: 'invoice.paid' })).status).toBe(200);
+    expect((await deliver(subEvent('00000000-0000-4000-8000-000000000999'))).status).toBe(200);
+    expect((await deliver(subEvent('not-a-uuid'))).status).toBe(200);
+    expect(await db.billingAccount.count()).toBe(0);
+    expect(await db.stripeEvent.count({ where: { processedAt: null } })).toBe(0);
+  });
+});
+
+describe('Idempotency-Key on Stripe creates', () => {
+  it('checkout sends the caller-derived key; the portal sends none', async () => {
+    const sent: Headers[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      sent.push(new Headers(init?.headers));
+      return Response.json({ url: 'https://checkout.stripe.test/s' });
+    });
+    const p = stripeProvider('sk_test_x', 'price_pro');
+    const input = { orgId: 'o1', customerId: null, email: 'a@example.test', returnUrl: 'http://app.test/b', idempotencyKey: 'checkout:o1:attempt-1' };
+    await p.checkout(input);
+    await p.checkout(input); // a retry of the same attempt
+    await p.portal({ customerId: 'cus_1', returnUrl: 'http://app.test/b' });
+    expect(sent.map((h) => h.get('idempotency-key'))).toEqual(['checkout:o1:attempt-1', 'checkout:o1:attempt-1', null]);
+  });
+});
