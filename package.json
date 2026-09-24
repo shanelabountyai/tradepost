@@ -14,7 +14,14 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:validate": "prisma validate"
+    "db:validate": "prisma validate",
+    "pretest:e2e": "npm run preflight",
+    "test": "dotenv -e .env.test -e .env.local -- vitest run",
+    "test:e2e": "dotenv -e .env.test -e .env.local -- playwright test",
+    "dev:test": "dotenv -e .env.test -e .env.local -- next dev -p 4100",
+    "build:test": "dotenv -e .env.test -e .env.local -- next build",
+    "start:test": "dotenv -e .env.test -e .env.local -- next start -p 4100",
+    "e2e:server": "npm run build:test && npm run start:test"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
@@ -26,6 +33,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22",
     "@types/pg": "^8",
     "@types/react": "^19.2.18",
