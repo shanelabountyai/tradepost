@@ -27,7 +27,7 @@ section and in `audit/<repo>.md` here.
      rebuilt on S2's **`userAction`** twin (spec S2 rule 4), or the INV-01 harness fails them.
    - Sign-in lands on `/account/security`. M3 routes a user with no memberships to `/onboarding` instead (`src/app/(public)/login/redeem/route.ts`).
    - INV-22 (owner/admin must be MFA'd) belongs in `requireOrg`. `disableTotp` already refuses owners and admins.
-   - Before M3, Shane confirms or overrides **D-13**: clone app tables add their back-relations to `core.prisma`, each line ending in `// app`.
+   - **D-13 confirmed** 2026-09-23: clone app tables add their back-relations to `core.prisma`, each line ending in `// app`.
 8. **talk4me: SEC-01 HIGH** (deferred here from item 4 on 2026-09-23). Cap `api/tts.ts` at about 500 chars, allowlist voice ids,
    add a Vercel Firewall rule. Model: Sonnet. After it is fixed, make the `talk4me` repo public.
 
