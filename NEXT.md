@@ -33,7 +33,9 @@ section and in `audit/<repo>.md` here.
    mock provider when no key. INV-12 green (13 tests, 8 mutations red, including the SB "any row = duplicate" bug and a dropped row lock).
    98 unit/integration + 9/9 e2e. **Found and fixed a defect present since M1**: Prisma writes were stored 5–6h off in a non-UTC Postgres zone (D-17g).
    Build choices are in spec **D-17**.
-   **Next here: M7** (see plan §1). Notifications module: outbox, drain in `/api/cron`, SMS via Twilio `fetch`, templates. Model: **Sonnet**.
+   **M7 Notifications: done** 2026-09-24. `modules/notifications/{outbox,sms,templates}.ts`, drain + 7-day sweep in `/api/cron`, Twilio/SMS env keys.
+   11 new tests (109 total pass), 4 drain mutations red (no row lock, no backoff, no attempt cap, no sentAt filter). Build choices are in spec **D-18**.
+   **Next here: M8** (see plan §1; check its model column before starting).
    - Shane, optional: to try real Stripe test mode, set `STRIPE_SECRET_KEY` (sk_test_), `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` in `.env.local`
      and forward with `stripe listen --forward-to localhost:4100/api/webhooks/stripe`. Not needed for M7.
    - Carried notes: an audit-log viewer (`audit.read`) and `/o/[org]/settings/security` are not built. Neither is in any milestone yet, so add them to `BACKLOG.md` if wanted.
