@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import { env } from '@/core/env';
+import { Refused } from '@/core/errors';
 import { hashToken, newToken } from '@/core/tokens';
 
 // Hashed DB sessions (groundwork `src/session.ts`). The cookie holds the raw token and the
@@ -23,9 +24,9 @@ export type SessionCtx = {
 };
 
 /** Thrown when an action needs a sign-in within the last 5 minutes (INV-26). */
-export class ReauthRequired extends Error {
+export class ReauthRequired extends Refused {
   constructor() {
-    super('Sign in again to do this.');
+    super('For this change, sign in again first. A sign-in link counts as recent for 5 minutes.');
   }
 }
 

@@ -1,52 +1,72 @@
 import Link from 'next/link';
 import { requireUser } from '@/core/auth/session';
 import { pendingEnrolment } from '@/core/auth/totp';
-import { signOutAll, signOutHere, startEnrol, turnOffTotp } from './actions';
+import { ActionForm } from '@/core/ui/action-form';
+import { changeEmail, deleteMyAccount, signOutAll, signOutHere, startEnrol, turnOffTotp } from './actions';
 import { ConfirmForm } from './confirm-form';
 
 export const metadata = { title: 'Security' };
 
-export default async function Security({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function Security({ searchParams }: { searchParams: Promise<{ mfa?: string; email?: string }> }) {
   const s = await requireUser();
   const pending = await pendingEnrolment(s);
-  const { error } = await searchParams;
+  const q = await searchParams;
   return (
     <main>
       <h1>Security</h1>
-      <p>Signed in as {s.email}</p>
-      {error === 'reauth' && (
-        <p role="alert">For this change, <Link href="/login">sign in again</Link> first. Links count as recent for 5 minutes.</p>
-      )}
+      <p>Signed in as {s.email} · <Link href="/onboarding">Your orgs</Link></p>
+      {q.mfa === 'required' && !s.totpEnrolled && <p role="alert">Owners and admins must turn on two-factor sign-in before opening their org.</p>}
+      {q.email === 'sent' && <p role="status">Check the new address for a confirmation link.</p>}
+      {q.email === 'changed' && <p role="status">Your email address was changed. Other devices were signed out.</p>}
 
       <h2>Two-factor sign-in</h2>
+      {/* Always mounted at this spot: confirming deletes the pending cookie, which refreshes the page,
+          and the recovery codes live in this component's state. Unmounted, they would never be seen. */}
+      <ConfirmForm pending={!!pending} />
       {pending ? (
         <>
           <p>Add this key to your authenticator app, then enter the code it shows.</p>
-          <p><code>{pending.secret}</code></p>
+          <p><code data-testid="totp-secret">{pending.secret}</code></p>
           <p><a href={pending.uri}>Open in authenticator app</a></p>
-          <ConfirmForm />
         </>
       ) : (
         <>
           <p>{s.totpEnrolled ? 'On.' : 'Off.'}</p>
-          <form action={startEnrol}>
+          <ActionForm action={startEnrol}>
             <button type="submit">{s.totpEnrolled ? 'Move to a new device' : 'Turn on'}</button>
-          </form>
+          </ActionForm>
           {s.totpEnrolled && (
-            <form action={turnOffTotp}>
+            <ActionForm action={turnOffTotp}>
               <button type="submit">Turn off</button>
-            </form>
+            </ActionForm>
           )}
         </>
       )}
 
+      <h2>Email address</h2>
+      <ActionForm action={changeEmail}>
+        <label>
+          New email <input name="email" type="email" required />
+        </label>
+        <button type="submit">Send confirmation link</button>
+      </ActionForm>
+
       <h2>Sessions</h2>
-      <form action={signOutHere}>
+      <ActionForm action={signOutHere}>
         <button type="submit">Sign out</button>
-      </form>
-      <form action={signOutAll}>
+      </ActionForm>
+      <ActionForm action={signOutAll}>
         <button type="submit">Sign out everywhere</button>
-      </form>
+      </ActionForm>
+
+      <h2>Delete account</h2>
+      <p>This cannot be undone. You cannot delete your account while you are the only owner of an org.</p>
+      <ActionForm action={deleteMyAccount}>
+        <label>
+          Type your email to confirm <input name="confirm" autoComplete="off" required />
+        </label>
+        <button type="submit">Delete my account</button>
+      </ActionForm>
     </main>
   );
 }

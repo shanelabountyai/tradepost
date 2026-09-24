@@ -1,39 +1,46 @@
 'use server';
 import { redirect } from 'next/navigation';
-import { ReauthRequired, requireUser, signOut, signOutEverywhere } from '@/core/auth/session';
+import { z } from 'zod';
+import { requestEmailChange } from '@/core/auth/link';
+import { signOut, signOutEverywhere } from '@/core/auth/session';
 import { confirmTotp, disableTotp, enrolTotp } from '@/core/auth/totp';
+import { userAction } from '@/core/authz/action';
+import { deleteAccount } from '@/core/tenancy/delete';
 
-// Thin calls into core (D-12). Each core function checks the session itself.
-const reauthOr = async (fn: () => Promise<unknown>) => {
-  try {
-    await fn();
-  } catch (e) {
-    if (e instanceof ReauthRequired) redirect('/account/security?error=reauth');
-    throw e;
-  }
-};
+// Thin calls into core (D-12). A refusal (stale sign-in, owner turning TOTP off) comes back as { error }.
+const none = z.object({});
 
-export async function startEnrol() {
-  await reauthOr(enrolTotp);
+export const startEnrol = userAction(none, async () => {
+  await enrolTotp();
   redirect('/account/security');
-}
+});
 
-export async function finishEnrol(_: unknown, form: FormData): Promise<{ codes?: string[]; error?: string }> {
-  const codes = await confirmTotp(String(form.get('code') ?? ''));
+export const finishEnrol = userAction(z.object({ code: z.string() }), async (_, { code }) => {
+  const codes = await confirmTotp(code);
   return codes ? { codes } : { error: 'That code did not match. Try the next one from your app.' };
-}
+});
 
-export async function turnOffTotp() {
-  await reauthOr(disableTotp);
+export const turnOffTotp = userAction(none, async () => {
+  await disableTotp();
   redirect('/account/security');
-}
+});
 
-export async function signOutHere() {
+export const signOutHere = userAction(none, async () => {
   await signOut();
-  redirect('/login');
-}
+  redirect('/');
+});
 
-export async function signOutAll() {
-  await signOutEverywhere((await requireUser()).userId);
-  redirect('/login');
-}
+export const signOutAll = userAction(none, async (s) => {
+  await signOutEverywhere(s.userId);
+  redirect('/');
+});
+
+export const changeEmail = userAction(z.object({ email: z.string() }), async (s, { email }) => {
+  await requestEmailChange(s, email);
+  redirect('/account/security?email=sent');
+});
+
+export const deleteMyAccount = userAction(z.object({ confirm: z.string() }), async (s, { confirm }) => {
+  await deleteAccount(s, confirm);
+  redirect('/');
+});

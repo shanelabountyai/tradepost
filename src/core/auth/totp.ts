@@ -4,6 +4,7 @@ import { Secret, TOTP } from 'otpauth';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import { env } from '@/core/env';
+import { Refused } from '@/core/errors';
 import { hit, LIMITS } from '@/core/rate-limit';
 import { openSecret, sealSecret } from './secret-box';
 import { assertFresh, otherSessions, requireUser, type SessionCtx } from './session';
@@ -85,7 +86,7 @@ export async function disableTotp(): Promise<void> {
   const s = await requireUser();
   assertFresh(s);
   if (await db.membership.count({ where: { userId: s.userId, role: { in: ['owner', 'admin'] } } })) {
-    throw new Error('Owners and admins must keep two-factor sign-in on.');
+    throw new Refused('Owners and admins must keep two-factor sign-in on.');
   }
   await db.$transaction([
     db.user.update({ where: { id: s.userId }, data: { totpSecretSealed: null, totpEnrolledAt: null, totpLastStep: null } }),

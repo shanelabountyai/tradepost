@@ -1,13 +1,13 @@
 'use server';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 import { redeemRecoveryCode, verifyTotp } from '@/core/auth/totp';
+import { userAction } from '@/core/authz/action';
 
-export async function submitTotp(form: FormData) {
-  if (!(await verifyTotp(String(form.get('code') ?? '')))) redirect('/login/mfa?error=1');
-  redirect('/account/security');
-}
+const code = z.object({ code: z.string() });
 
-export async function submitRecoveryCode(form: FormData) {
-  if (!(await redeemRecoveryCode(String(form.get('code') ?? '')))) redirect('/login/mfa?error=1');
-  redirect('/account/security');
-}
+export const submitTotp = userAction(code, async (_, i) => redirect((await verifyTotp(i.code)) ? '/onboarding' : '/login/mfa?error=1'), { allowPendingMfa: true });
+
+export const submitRecoveryCode = userAction(code, async (_, i) => redirect((await redeemRecoveryCode(i.code)) ? '/onboarding' : '/login/mfa?error=1'), {
+  allowPendingMfa: true,
+});

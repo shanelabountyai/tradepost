@@ -26,7 +26,7 @@ test('INV-17 GETting the link twice spends nothing; the button signs in once', a
   expect(spent.rows[0].usedAt).toBeNull();
 
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page).toHaveURL(/\/account\/security$/);
+  await expect(page).toHaveURL(/\/onboarding$/); // a user with no org lands here (M3)
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
 
   // INV-15, signed-in route: the global headers are on it too.

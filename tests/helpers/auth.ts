@@ -9,11 +9,16 @@ import { jar } from './next';
 afterEach(() => advanceClock(0));
 afterAll(() => db.$disconnect());
 
-/** Empties every table the auth tests touch. */
+let tables: string[] | undefined;
+/** Every table but Prisma's own, so a clone's tables are covered with no registration. */
+export const allTables = async () =>
+  (tables ??= (
+    await db.$queryRaw<{ t: string }[]>`SELECT tablename AS t FROM pg_tables WHERE schemaname = current_schema() AND tablename <> '_prisma_migrations' ORDER BY 1`
+  ).map((r) => r.t));
+
+/** Empties every table. TRUNCATE skips AuditEvent's append-only row trigger (INV-19). */
 export async function resetAuthTables() {
-  await db.$executeRawUnsafe(
-    'TRUNCATE "User", "Session", "LoginToken", "RecoveryCode", "RateLimit", "CapturedMessage", "Org", "Membership" CASCADE',
-  );
+  await db.$executeRawUnsafe(`TRUNCATE ${(await allTables()).map((t) => `"${t}"`).join(', ')} CASCADE`);
 }
 
 export const makeUser = (email = 'ada@example.test') => db.user.create({ data: { email } });

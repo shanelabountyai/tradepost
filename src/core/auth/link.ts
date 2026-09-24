@@ -5,7 +5,9 @@ import { env } from '@/core/env';
 import { sendEmail } from '@/core/email/transport';
 import { hit, LIMITS } from '@/core/rate-limit';
 import { hashToken, newToken } from '@/core/tokens';
-import { createSession } from './session';
+import { audit } from '@/core/audit';
+import { Refused } from '@/core/errors';
+import { assertFresh, createSession, otherSessions, type SessionCtx } from './session';
 
 const TTL_MS = 15 * 60_000;
 const COOLDOWN_MS = 60_000;
@@ -57,4 +59,60 @@ export async function redeemLink(token: string): Promise<string | null> {
   const row = await db.loginToken.findUniqueOrThrow({ where: { hash } });
   const userId = row.userId ?? (await db.user.upsert({ where: { email: row.email }, create: { email: row.email }, update: {}, select: { id: true } })).id;
   return createSession(userId);
+}
+
+/**
+ * Sends a confirm link to the NEW address (spec §7a.6). Needs a fresh sign-in (INV-26); the new
+ * address must not belong to another user. Limited per user like link requests are per email.
+ */
+export async function requestEmailChange(s: SessionCtx, input: string): Promise<void> {
+  assertFresh(s);
+  const email = normalizeEmail(input);
+  if (!email) throw new Refused('Enter a valid email address.');
+  if (email === s.email) throw new Refused('That is already your email address.');
+  if (await db.user.findUnique({ where: { email }, select: { id: true } })) throw new Refused('That address belongs to another account.');
+  if (!(await hit(`email-change:user:${s.userId}`, LIMITS.linkPerEmail))) throw new Refused('Too many requests. Wait a few minutes and try again.');
+  const token = newToken();
+  const t = now();
+  await db.loginToken.create({
+    data: { hash: hashToken(token), purpose: 'email_change', email, userId: s.userId, createdAt: t, expiresAt: new Date(t.getTime() + TTL_MS) },
+  });
+  await sendEmail({
+    to: email,
+    subject: 'Confirm your new email address',
+    body: `Confirm this address: ${env.APP_URL}/account/email/${token}\n\nThis link expires in 15 minutes. If you did not ask for it, ignore this email.`,
+  });
+}
+
+/**
+ * Spends an email-change link for the signed-in user who asked for it (POST only). In one
+ * transaction: swaps the email, signs out every other session and revokes pending invites to
+ * the old address (INV-06). The old address gets a notice. False on a bad, used or stale link.
+ */
+export async function confirmEmailChange(s: SessionCtx, token: string): Promise<boolean> {
+  const hash = hashToken(token);
+  const t = now();
+  const spent = await db.loginToken.updateMany({
+    where: { hash, purpose: 'email_change', userId: s.userId, usedAt: null, expiresAt: { gt: t } },
+    data: { usedAt: t },
+  });
+  if (spent.count !== 1) return false;
+  const { email } = await db.loginToken.findUniqueOrThrow({ where: { hash } });
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: s.userId }, data: { email } });
+      await tx.session.deleteMany({ where: otherSessions(s) });
+      await tx.invite.updateMany({ where: { email: s.email, acceptedAt: null, revokedAt: null }, data: { revokedAt: t } });
+      await audit({ userId: s.userId }, 'account.email_changed', { targetType: 'user', targetId: s.userId }, tx);
+    });
+  } catch (e) {
+    if ((e as { code?: string }).code === 'P2002') return false; // taken since the link was sent
+    throw e;
+  }
+  await sendEmail({
+    to: s.email,
+    subject: 'Your email address was changed',
+    body: 'The email address on your account was just changed. If this was not you, contact support right away.',
+  });
+  return true;
 }

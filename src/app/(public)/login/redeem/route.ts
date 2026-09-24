@@ -9,5 +9,5 @@ export async function POST(req: Request) {
   const session = typeof token === 'string' ? await redeemLink(token) : null;
   if (!session) return Response.redirect(new URL('/login?expired=1', req.url), 303);
   await setSessionCookie(session);
-  return Response.redirect(new URL('/account/security', req.url), 303);
+  return Response.redirect(new URL('/onboarding', req.url), 303);
 }

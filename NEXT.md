@@ -22,12 +22,13 @@ section and in `audit/<repo>.md` here.
    **M1 core platform: done** 2026-09-23 (env/clock/log/db + guard, headers, health, error pages, vitest, prod-build e2e, CI; INV-14, 15 (public + api), 18, 20 green).
    **M2 Auth: done** 2026-09-23 in one session (est. 2). INV-05/07/09 (scoped to M2), 13, 15 (signed-in), 17, 23, 24, 25, 26 (TOTP) are green,
    and each was mutation-checked red. The first migrations exist: core, billing and notifications, each separate (D-14d). Build choices are in spec **D-14**.
-   **Next here: M3, Tenancy + authz** (`IMPLEMENTATION_PLAN.md` §1). Model: **Opus**. Carry-overs from M2:
-   - The plain `'use server'` exports in `src/app/(public)/login/mfa/actions.ts` and `src/app/account/security/actions.ts` must be
-     rebuilt on S2's **`userAction`** twin (spec S2 rule 4), or the INV-01 harness fails them.
-   - Sign-in lands on `/account/security`. M3 routes a user with no memberships to `/onboarding` instead (`src/app/(public)/login/redeem/route.ts`).
-   - INV-22 (owner/admin must be MFA'd) belongs in `requireOrg`. `disableTotp` already refuses owners and admins.
-   - **D-13 confirmed** 2026-09-23: clone app tables add their back-relations to `core.prisma`, each line ending in `// app`.
+   **M3 Tenancy + authz: done** 2026-09-23 in one session (est. 2). INV-01/02/03/04/22 run through the glob harness
+   (`tests/invariants/harness.ts`; six negative controls, and mutation-checked red on real code), plus INV-05 (membership removal),
+   06, 07 (invite), 09 (invite accepts), 19, 21 (including concurrent demotion), 26 (deletion) and 28, all green. D-13 confirmed; build choices are in spec **D-15**.
+   **Next here: M4, Share links** (+ M5, Cron + secret hygiene, in the same session if it fits; plan §1). Model: **Opus** for M4, Sonnet is fine for M5.
+   - The harness needs a fixture row for M4's example resource: add the model's `ref` to the seed in `tests/invariants/harness.ts` (it is a core model, so not `tests/fixtures/app.ts`).
+   - Carried notes: an audit-log viewer (`audit.read`) and `/o/[org]/settings/security` are not built. Neither is in any milestone yet, so add them to `BACKLOG.md` if wanted.
+   - The harness takes ~2.5s on an idle machine and ~80s under a sibling project's sweep (load 45). That is CPU contention, not a hang.
 8. **talk4me: SEC-01 HIGH** (deferred here from item 4 on 2026-09-23). Cap `api/tts.ts` at about 500 chars, allowlist voice ids,
    add a Vercel Firewall rule. Model: Sonnet. After it is fixed, make the `talk4me` repo public.
 
