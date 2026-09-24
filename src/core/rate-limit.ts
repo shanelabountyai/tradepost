@@ -11,6 +11,8 @@ export const LIMITS = {
   // Per user. A 6-digit code is 10^6 wide; with drift ±1 this caps guessing at ~1e-5 per window.
   mfaPerUser: { limit: 8, windowMs: 5 * 60_000 },
   inviteAcceptPerUser: { limit: 10, windowMs: 15 * 60_000 },
+  // Anonymous reads of /s/[token]. Generous for a person, tight for a token guesser.
+  shareReadPerIp: { limit: 60, windowMs: 15 * 60_000 },
 } as const;
 
 export type Limit = (typeof LIMITS)[keyof typeof LIMITS];

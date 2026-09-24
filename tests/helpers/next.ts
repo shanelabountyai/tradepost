@@ -1,4 +1,4 @@
-// next/headers and next/navigation, mocked the way Next behaves (spike S2): cookies() reads and
+// next/headers, next/navigation and next/cache, mocked the way Next behaves (spike S2): cookies() reads and
 // writes one jar per test, redirect()/notFound() throw. Loaded for every test file (vitest setupFiles).
 import { beforeEach, vi } from 'vitest';
 
@@ -18,6 +18,7 @@ vi.mock('next/headers', () => ({
     delete: (name: string) => void jar.delete(name),
   }),
 }));
+vi.mock('next/cache', () => ({ revalidatePath: () => {} }));
 vi.mock('next/navigation', () => ({
   redirect: (to: string) => {
     throw new NavSignal('redirect', to);

@@ -5,6 +5,7 @@ import { LIMITS } from '@/core/rate-limit';
 import { verifyTotp } from '@/core/auth/totp';
 import { currentSession } from '@/core/auth/session';
 import { acceptInvite, createInvite } from '@/core/tenancy/invites';
+import { createShareLink, readShare } from '@/core/share/links';
 import { actAs, addMember, makeOrg } from '../helpers/org';
 import { advanceClock } from '@/core/clock';
 import { codeFor, enrol, makeUser, resetAuthTables, signInAs } from '../helpers/auth';
@@ -18,7 +19,8 @@ const base = Math.ceil(Date.now() / 900_000) * 900_000 + 1000 - Date.now();
 const at = (ms = 0) => advanceClock(base + ms);
 beforeEach(() => at());
 
-// Scope in M3: link requests (per IP and per email), TOTP attempts, invite accepts. Share reads join in M4.
+// Scope through M4: link requests (per IP and per email), TOTP attempts, invite accepts, share reads.
+// Public forms join when a clone adds one.
 describe('INV-09 Postgres rate limits', () => {
   it('link requests: the per-IP limit refuses request N+1', async () => {
     const n = LIMITS.linkPerIp.limit;
@@ -66,5 +68,15 @@ describe('INV-09 Postgres rate limits', () => {
     for (let i = 0; i < LIMITS.inviteAcceptPerUser.limit; i++) await expect(acceptInvite(s, 'guess')).rejects.toThrow('not valid');
     await expect(acceptInvite(s, token)).rejects.toThrow('Too many');
     expect(await db.membership.count({ where: { orgId: org.id } })).toBe(1);
+  });
+
+  it('share reads: the per-IP limit refuses read N+1 even with a live token', async () => {
+    const org = await makeOrg();
+    const owner = await addMember(org.id, 'owner', 'owner@example.test');
+    const project = await db.project.create({ data: { orgId: org.id, name: 'p' } });
+    const token = (await createShareLink(await actAs(owner.id, org.slug), 'project', project.id, 1)).split('/s/')[1]!;
+    for (let i = 0; i < LIMITS.shareReadPerIp.limit; i++) expect(await readShare('guess', '10.0.4.1')).toBeNull();
+    expect(await readShare(token, '10.0.4.1')).toBe('limited');
+    expect(await readShare(token, '10.0.4.2')).toEqual({ name: 'p' }); // another IP still reads
   });
 });

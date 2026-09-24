@@ -25,8 +25,10 @@ section and in `audit/<repo>.md` here.
    **M3 Tenancy + authz: done** 2026-09-23 in one session (est. 2). INV-01/02/03/04/22 run through the glob harness
    (`tests/invariants/harness.ts`; six negative controls, and mutation-checked red on real code), plus INV-05 (membership removal),
    06, 07 (invite), 09 (invite accepts), 19, 21 (including concurrent demotion), 26 (deletion) and 28, all green. D-13 confirmed; build choices are in spec **D-15**.
-   **Next here: M4, Share links** (+ M5, Cron + secret hygiene, in the same session if it fits; plan §1). Model: **Opus** for M4, Sonnet is fine for M5.
-   - The harness needs a fixture row for M4's example resource: add the model's `ref` to the seed in `tests/invariants/harness.ts` (it is a core model, so not `tests/fixtures/app.ts`).
+   **M4 Share links: done** 2026-09-23. `Project` is the example resource, with `core/share/{links,project}.ts`, `/s/[token]` and `/o/[org]/projects`.
+   INV-07 (share link), 08, 09 (share reads) and 15 (share route) are green, each mutation-checked red (7 mutations). The e2e sweep passed 8/8. Build choices are in spec **D-16**.
+   **Next here: M5, Cron + secret hygiene** (plan §1): `cron.ts` `isAuthorizedCron` (port from RB), hourly `/api/cron`, grep tests for INV-10/11/16. Model: **Sonnet**.
+   Also add the `RateLimit` sweep to `/api/cron` (the `ponytail:` note in `core/rate-limit.ts`).
    - Carried notes: an audit-log viewer (`audit.read`) and `/o/[org]/settings/security` are not built. Neither is in any milestone yet, so add them to `BACKLOG.md` if wanted.
    - The harness takes ~2.5s on an idle machine and ~80s under a sibling project's sweep (load 45). That is CPU contention, not a hang.
 8. **talk4me: SEC-01 HIGH** (deferred here from item 4 on 2026-09-23). Cap `api/tts.ts` at about 500 chars, allowlist voice ids,

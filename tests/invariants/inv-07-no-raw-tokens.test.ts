@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '@/core/db';
 import { requestLink } from '@/core/auth/link';
 import { createInvite } from '@/core/tenancy/invites';
+import { createShareLink } from '@/core/share/links';
 import { actAs, addMember, makeOrg } from '../helpers/org';
 import { enrol, makeUser, resetAuthTables, signInAs } from '../helpers/auth';
 
 beforeEach(resetAuthTables);
 
-// Scope in M3: login token, session, recovery code, invite. Share link (M4) adds its own.
+// Complete as of M4: login token, session, recovery code, invite, share link.
 describe('INV-07 no raw token is stored', () => {
   it('login token, session and recovery codes are stored only hashed', async () => {
     const u = await makeUser();
@@ -36,5 +37,17 @@ describe('INV-07 invites (M3 scope)', () => {
     const [msg] = await db.capturedMessage.findMany({ where: { to: 'new@example.test' } });
     const raw = msg!.body.match(/\/onboarding\/invite\/([\w-]+)/)![1]!;
     expect(JSON.stringify(await db.invite.findMany())).not.toContain(raw);
+  });
+});
+
+describe('INV-07 share links', () => {
+  it('a share link is stored only hashed', async () => {
+    const org = await makeOrg();
+    const owner = await addMember(org.id, 'owner', 'owner@example.test');
+    const project = await db.project.create({ data: { orgId: org.id, name: 'p' } });
+    const url = await createShareLink(await actAs(owner.id, org.slug), 'project', project.id, 1);
+    const raw = url.split('/s/')[1]!;
+    expect(raw.length).toBeGreaterThan(30);
+    expect(JSON.stringify(await db.shareLink.findMany())).not.toContain(raw);
   });
 });

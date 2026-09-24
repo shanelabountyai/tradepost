@@ -81,6 +81,7 @@ model Org {
   memberships    Membership[]
   invites        Invite[]
   shareLinks     ShareLink[]
+  projects       Project[]
   // module back-relations: each line ends in its module marker (spec §4)
   billingAccount BillingAccount? // billing
   outbox         Outbox[] // notifications
@@ -128,6 +129,18 @@ model ShareLink {
   createdAt    DateTime  @default(now()) @db.Timestamptz(6)
 
   @@index([orgId, resourceType, resourceId])
+}
+
+/// The example shareable resource (spec §7c). A clone replaces it with its own models.
+model Project {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  notes     String   @default("") // internal: never in the public projection (INV-08)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([orgId])
 }
 
 model RateLimit {

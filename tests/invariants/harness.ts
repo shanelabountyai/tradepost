@@ -39,6 +39,8 @@ const org = (k: 'a' | 'b', n: number) => ({
   member: ID(n + 2), // ref('member'): a second owner, so leave/demote/remove succeed for the actor
   adminNoMfa: ID(n + 3), // INV-22: an admin who never enrolled
   invite: ID(n + 4), // ref('invite'): pending
+  project: ID(n + 5), // ref('project'): the share example resource
+  shareLink: ID(n + 6), // ref('shareLink'): live, on that project
 });
 const F = { a: org('a', 100), b: org('b', 200) };
 type Org = typeof F.a;
@@ -58,7 +60,11 @@ async function seed() {
     await db.invite.create({
       data: { id: o.invite, orgId: o.org, email: `invitee-${o.key}@example.test`, tokenHash: hashToken(`invite-${o.key}`), expiresAt: new Date(t.getTime() + 86_400_000) },
     });
-    refs[o.key] = { member: o.member, invite: o.invite, ...(await seedApp({ orgId: o.org, userId: o.owner }, o.key)) };
+    await db.project.create({ data: { id: o.project, orgId: o.org, name: `Project ${o.key}` } });
+    await db.shareLink.create({
+      data: { id: o.shareLink, orgId: o.org, resourceType: 'project', resourceId: o.project, tokenHash: hashToken(`share-${o.key}`), expiresAt: new Date(t.getTime() + 86_400_000) },
+    });
+    refs[o.key] = { member: o.member, invite: o.invite, project: o.project, shareLink: o.shareLink, ...(await seedApp({ orgId: o.org, userId: o.owner }, o.key)) };
   }
 }
 

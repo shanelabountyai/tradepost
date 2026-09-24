@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // INV-15. Public page and API here; the signed-in route is checked in login.spec.ts (M2)
-// and the share route in M4; each adds its path here.
+// and the share route in share.spec.ts (M4), where Referrer-Policy is the stricter no-referrer.
 for (const path of ['/', '/api/health']) {
   test(`INV-15 global headers on ${path}`, async ({ request }) => {
     const h = (await request.get(path)).headers();
