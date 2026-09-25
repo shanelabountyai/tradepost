@@ -1,21 +1,21 @@
 # NEXT
 
-**Setup done 2026-09-25.** Cloned from the foundation (v1.0.1), renamed to `tradepost` on :4200, and the local DBs
-`tradepost` and `tradepost_test` are migrated. The baseline passes 122/122 tests, and lint and typecheck are clean. Base decision: `docs/decisions.md` D-001.
+**P0-1 tenancy layer done 2026-09-25** (D-002): `src/lib/tenancy.ts` (`providerDb` / `clientDb`), `Listing` and `Job`,
+a lint test, and the fixture seeds. 130/130 tests pass, and lint, typecheck and drift are clean.
 
-## Next item: P0-1 tenancy layer (Opus)
+## Next item: P0-2 listings & search (Opus for the ranking; Sonnet is fine for the listing CRUD UI)
 
-TDD, in this order (PRD build notes):
-1. `prisma/schema/tradepost.prisma`: `Listing` (orgId), `Job` (orgId + clientId). Minimal fields only; escrow comes later.
-2. A scoped client for provider-owned models that injects `orgId` from `OrgCtx`. The client side is scoped by `clientId`,
-   through a separate path.
-3. Tests: a foreign provider's job by id → 404; a dual-role user's client view never shows their provider rows and
-   vice versa; a lint/grep test that no raw `db.listing|db.job` access exists outside the layer.
-4. `tests/fixtures/app.ts` `seedApp`: seed one listing and one job per fixture org, so INV-01..04 cover them.
+1. `Listing` fields: category, description, service area (center lat/lng + radius), base rate in integer cents, and a
+   weekly availability pattern.
+2. Provider listing CRUD through `providerDb` with `orgAction` (ids are `ref('listing')`, so INV-02 covers them).
+3. Client search: filter by category + haversine in radius + available on date + min rating; rank by (rating, review
+   count, distance). The ranking is a **pure function, unit-tested against fixtures**. Public listing reads need a
+   read-only path in `src/lib/tenancy.ts`. The lint test forbids `db.listing` anywhere else.
+4. Watch: after `prisma migrate dev`, revert the header it adds to `migration_lock.toml` (D-002 upstream note).
 
 ## Queue (PRD phasing)
 
-1. Tenancy + listings/search (haversine, a pure ranking function unit-tested against fixtures)
+1. ~~Tenancy~~ + listings/search
 2. Job lifecycle + escrow ledger (balance invariant; 72h auto-confirm on the clock)
 3. Blind reviews + disputes
 4. Threads; P1 only if time allows. Capstone demo: one job run twice, happy path then dispute, with the ledger balanced both times.

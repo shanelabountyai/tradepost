@@ -1,0 +1,29 @@
+// Tradepost's own tables (D-001). Provider-owned rows carry orgId (= providerId) and are read and
+// written only through src/lib/tenancy.ts; tests/unit/tenancy-lint.test.ts fails on any other access.
+
+model Listing {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  jobs      Job[]
+
+  @@unique([id, orgId]) // target of Job's composite FK
+  @@index([orgId])
+}
+
+model Job {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid // the provider
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  clientId  String   @db.Uuid
+  client    User     @relation(fields: [clientId], references: [id], onDelete: Restrict) // money rows never vanish with an account
+  listingId String   @db.Uuid
+  // (listingId, orgId): the database refuses a job whose listing belongs to another provider
+  listing   Listing  @relation(fields: [listingId, orgId], references: [id, orgId], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([orgId])
+  @@index([clientId])
+}
