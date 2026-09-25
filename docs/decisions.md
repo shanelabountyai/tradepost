@@ -37,3 +37,26 @@ not. That is marked `ponytail:` in the layer.
 
 **Upstream note:** `prisma migrate dev` re-adds Prisma's two-line header to `migration_lock.toml`, and that trips
 `foundation:drift`. It was reverted here. The template should ship the header.
+
+## D-003 — P0-2 listings & search build choices (2026-09-25)
+
+**Chose:**
+- **Listing fields.** `category` is a Prisma enum (one level, PRD non-goal). The service area is `lat`/`lng` + `radiusMiles`.
+  `rateCents` is an integer, and the form takes whole dollars. `days Int[]` holds the weekly pattern (0 = Sunday). A
+  separate migration adds database CHECKs for the rate, radius, coordinates, days and the rating range.
+- **Rating lives in `ProviderRating`** (orgId PK, `count`, `sum` of stars), not in columns on the template's `Org`. The
+  mean is computed as `sum / count`, so no stored float can drift. P0-3 writes it on publication.
+- **Search splits in two.** `searchableListings` in `src/lib/tenancy.ts` is the one un-tenanted, read-only, field-selected
+  read, and it narrows by category and weekday in SQL. `rankListings` in `src/lib/search.ts` is pure: it filters on
+  haversine distance ≤ the listing's own radius and on min rating, then orders by mean desc, count desc, distance asc.
+  Unrated scores 0. A calendar date's weekday is read in UTC.
+- **`Job → Listing` is now `NoAction`.** A listing with jobs refuses deletion (`Refused`), so money rows never cascade
+  away. An org delete still cascades both, because NO ACTION is checked at the end of the statement.
+- **`/search` is a public GET form**, so a search is a URL. Weekdays post as checkboxes `d0`–`d6`, because the action
+  layer's `Object.fromEntries(FormData)` keeps only the last value of a repeated name.
+
+**Found:** `seedApp` (P0-1) returned random ids, but the harness reseeds before every call and generates each input
+only once. Every `ref('listing')` action would therefore have hit a stale id. The fixture ids are now fixed.
+
+**Known ceilings:** the client types coordinates, because there is no geocoder. The distance filter runs in memory after the SQL narrowing, and
+a bounding-box `WHERE` is the upgrade if the listing count grows. Availability is by weekday only, because hours arrive with booking.

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { notFoundOnP2025 } from '@/core/authz/guards';
 import { db } from '@/core/db';
 import { clientDb, providerDb } from '@/lib/tenancy';
+import { LISTING as L } from '../fixtures/app';
 import { resetAuthTables } from '../helpers/auth';
 import { NavSignal } from '../helpers/next';
 import { actAs, addMember, makeOrg } from '../helpers/org';
@@ -13,8 +14,8 @@ async function setup() {
   const [p, q] = [await makeOrg('p'), await makeOrg('q')];
   const u = await addMember(p.id, 'member', 'u@example.test');
   const c = await db.user.create({ data: { email: 'c@example.test' } });
-  const lP = await db.listing.create({ data: { orgId: p.id, title: 'P plumbing' } });
-  const lQ = await db.listing.create({ data: { orgId: q.id, title: 'Q painting' } });
+  const lP = await db.listing.create({ data: { ...L, orgId: p.id, title: 'P plumbing' } });
+  const lQ = await db.listing.create({ data: { ...L, orgId: q.id, title: 'Q painting' } });
   const jP = await db.job.create({ data: { orgId: p.id, listingId: lP.id, clientId: c.id } });
   const jQ = await db.job.create({ data: { orgId: q.id, listingId: lQ.id, clientId: u.id } });
   return { p, q, u, c, lP, lQ, jP, jQ, ctxU: await actAs(u.id, 'p') };
@@ -40,7 +41,7 @@ describe('provider scope', () => {
   });
 
   it("a create is stamped with the caller's org, whatever it names", async () => {
-    const l = await providerDb(P.ctxU).listing.create({ data: { orgId: P.q.id, title: 'x' } });
+    const l = await providerDb(P.ctxU).listing.create({ data: { ...L, orgId: P.q.id, title: 'x' } });
     expect(l.orgId).toBe(P.p.id);
   });
 

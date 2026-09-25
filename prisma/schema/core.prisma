@@ -88,6 +88,7 @@ model Org {
   outbox         Outbox[] // notifications
   listings       Listing[] // app
   jobs           Job[] // app
+  rating         ProviderRating? // app
 }
 
 model Membership {

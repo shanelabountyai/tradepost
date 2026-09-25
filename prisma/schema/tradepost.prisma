@@ -5,12 +5,39 @@ model Listing {
   id        String   @id @default(uuid()) @db.Uuid
   orgId     String   @db.Uuid
   org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  title     String
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  jobs      Job[]
+  title       String
+  category    ServiceCategory
+  description String          @default("")
+  // service area: a circle around (lat, lng); search matches a client inside it (haversine)
+  lat         Float
+  lng         Float
+  radiusMiles Int
+  rateCents   Int // base rate, integer cents
+  days        Int[] // weekly availability: 0 = Sunday … 6 = Saturday
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+  jobs        Job[]
 
   @@unique([id, orgId]) // target of Job's composite FK
   @@index([orgId])
+  @@index([category])
+}
+
+enum ServiceCategory {
+  plumbing
+  electrical
+  cleaning
+  painting
+  handyman
+  landscaping
+}
+
+// A provider's public rating. Written only by review publication (P0-3); read by search.
+// Mean = sum / count, so there is no stored float to drift from the reviews.
+model ProviderRating {
+  orgId String @id @db.Uuid
+  org   Org    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  count Int    @default(0)
+  sum   Int    @default(0) // total stars
 }
 
 model Job {
@@ -21,7 +48,8 @@ model Job {
   client    User     @relation(fields: [clientId], references: [id], onDelete: Restrict) // money rows never vanish with an account
   listingId String   @db.Uuid
   // (listingId, orgId): the database refuses a job whose listing belongs to another provider
-  listing   Listing  @relation(fields: [listingId, orgId], references: [id, orgId], onDelete: Cascade)
+  // NoAction: a listing with jobs cannot be deleted (money rows stay), but an org delete still cascades both
+  listing   Listing  @relation(fields: [listingId, orgId], references: [id, orgId], onDelete: NoAction)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([orgId])

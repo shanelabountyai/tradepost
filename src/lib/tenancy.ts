@@ -1,6 +1,7 @@
 import type { SessionCtx } from '@/core/auth/session';
 import type { OrgCtx } from '@/core/authz/guards';
 import { db } from '@/core/db';
+import type { ServiceCategory } from '@/generated/prisma/enums';
 
 // P0-1 (D-001): the only door to provider-owned tables. Every query through these clients has its
 // tenant filter injected: `where` gets it ANDed in, `create` gets it stamped on, and an update that
@@ -41,6 +42,20 @@ export function providerDb(ctx: Pick<OrgCtx, 'orgId'>) {
   const guard = tenantFilter({ orgId: ctx.orgId });
   const x = db.$extends({ query: { listing: guard, job: guard } });
   return { listing: x.listing, job: x.job };
+}
+
+/**
+ * Public and read-only: every provider's listings in one category that work on one weekday, with
+ * only the fields a client may see. The one un-tenanted read of a provider-owned table (P0-2).
+ */
+export function searchableListings(q: { category: ServiceCategory; weekday: number }) {
+  return db.listing.findMany({
+    where: { category: q.category, days: { has: q.weekday } },
+    select: {
+      id: true, title: true, category: true, description: true, lat: true, lng: true, radiusMiles: true, rateCents: true, days: true,
+      org: { select: { name: true, rating: { select: { count: true, sum: true } } } },
+    },
+  });
 }
 
 /**
