@@ -74,7 +74,7 @@ git clone git@github.com:shanelabountyai/saas-foundation.git my-app
 cd my-app
 git remote rename origin template          # the template stays reachable as "template"
 git remote add origin git@github.com:shanelabountyai/my-app.git
-git checkout -b main v1.0.0
+git checkout -B main v1.0.0   # -B: a fresh clone already has a main
 npm run new-project                        # name, port → rewrites package.json, README; removes dev:template
 git push -u origin main
 ```

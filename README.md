@@ -14,7 +14,7 @@ Needs Node 22 and a local Postgres 17 you can create databases in (Homebrew `pos
 git clone git@github.com:shanelabountyai/saas-foundation.git my-app
 cd my-app
 git remote rename origin template
-git checkout -b main v1.0.0
+git checkout -B main v1.0.0   # -B: a fresh clone already has a main
 npm ci
 npm run new-project -- my-app 4200   # name and port; rewrites package.json, CI, Playwright, README
 npm run db:setup                     # creates my_app and my_app_test, writes .env.local and .env.test, migrates both

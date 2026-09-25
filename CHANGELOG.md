@@ -2,6 +2,10 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
+## 1.0.1 (2026-09-25)
+
+Fix: the clone steps in README and plan §3.1 used `git checkout -b main`, which fails because a fresh clone already has `main`; now `-B`. Docs only.
+
 ## 1.0.0 (2026-09-25)
 
 First release. Core (env, db with cloud guard, auth with magic link, sessions, TOTP and recovery codes, tenancy, authz, audit, share links, cron),
