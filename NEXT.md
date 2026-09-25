@@ -4,6 +4,8 @@
 **that project's folder** (one session per project). The details for each are in that repo's *Security findings*
 section and in `audit/<repo>.md` here.
 
+**Session pick 2026-09-25: item 5 (storage SEC-01/02) runs on Opus, in the storage business folder, not here. Foundation has nothing open; safe to /clear.**
+
 ## Queue (in order)
 
 1. ~~**clinic: SEC-01 HIGH.**~~ **Live** (verified 2026-09-23): env vars set, pushed (`5f24c71`, in sync with origin),
