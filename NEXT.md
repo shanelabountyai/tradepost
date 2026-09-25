@@ -39,7 +39,7 @@ section and in `audit/<repo>.md` here.
    (CI job `modules-removed`), README, legal stubs, CHANGELOG, CLONES. 122 tests + 10/10 e2e. **Tagged `v1.0.0`, then `v1.0.1`** (the acceptance run found the README's
    `git checkout -b main` fails in a fresh clone; a pushed tag is not moved, so the fix is a patch release). Clone from **v1.0.1**. Acceptance run from a clean clone:
    install to a working `/demo` sign-in took about 10s warm-cache (limit 30 min; not measured cold). Build choices in spec **D-19**.
-   **Next here: M9** (portfolio scorecard artifact, plan §1; Sonnet, Opus for K3/K4). Then storage (item 5) and talk4me (item 8).
+   **M9 scorecard: done** 2026-09-25, artifact https://claude.ai/artifact/TognMvisj8T9GNQGtE9MbJ. Foundation row all ✔ (122 tests). Only clinic and event toolkit cells were re-verified; the other 13 rows are the 2026-09-23 baseline, flagged as such. **Next: storage (item 5)**, then talk4me. Earlier: storage (item 5) and talk4me (item 8).
    - Not built, on purpose: `scripts/seed.ts`, `scripts/drain-outbox.ts` (nothing needs them).
    - Shane, optional: to try real Stripe test mode, set `STRIPE_SECRET_KEY` (sk_test_), `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` in `.env.local`
      and forward with `stripe listen --forward-to localhost:4100/api/webhooks/stripe`. Not needed for M7.
