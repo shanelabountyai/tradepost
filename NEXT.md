@@ -1,17 +1,17 @@
 # NEXT
 
-**Capstone demo seed done 2026-09-26** (D-007). `npm run seed:demo` seeds two providers, a client, a platform admin
-(`ops@`) and the capstone. That is one Brightline job run twice: confirmed, then disputed and split, each with a
-thread and a balanced ledger. `-- --month` adds the PRD's seeded month (200 jobs, 15 disputes), which
-`tests/integration/seed.test.ts` asserts ends terminal and balanced. The gate is green: lint, typecheck, drift,
-168/168 tests and the build.
+**Project closure done 2026-09-26.** All four definition-of-done deliverables exist:
 
-## Next item: project closure (global definition of done)
+1. Shipped code: P0-1..P0-7 plus the capstone seed (D-007). Gate green: 168/168 tests, lint, typecheck, drift, build.
+2. `docs/DEMO.md`: screen by screen from `npm run seed:demo`. Every command was run once. The live click-through
+   (stops 2–5, server actions) was not browser-driven; run it once before a real demo.
+3. Exec brief *Tradepost in Brief*: https://claude.ai/artifact/C5N7FvEoizZszzzszTLc2Q (private until shared).
+4. LinkedIn posts in the Lab Intelligence Ledger (https://claude.ai/artifact/Ai5xKScgT2sWtqXRQ1ZA8i), project `tradepost`:
+   #76 blind reviews (MarTech), #77 provider can't release pay (Impact), #78 dispute splits (Impact).
+   The race-test-that-proved-nothing story was not drafted: the Ledger already carries that theme about 8 times.
 
-1. ✅ done 2026-09-26 — `docs/DEMO.md`: screen by screen, from the seeded accounts in `npm run seed:demo`. Sign in as `client@`, then the
-   Brightline owner, then `ops@` at `/admin/disputes`. It needs `DEMO_MODE=1`. Run every command in it once.
-2. ✅ done 2026-09-26: *Tradepost in Brief*, https://claude.ai/artifact/C5N7FvEoizZszzzszTLc2Q (private until shared; no screenshots, since the repo has no capture spec for it).
-3. LinkedIn posts in the Ledger. Mine `docs/decisions.md` "Found:" lines first.
-4. Record the artifact URLs in `docs/RELEASE_NOTES.md` or here.
+## Next item: none required
 
-P1 stays cut unless there is time after closure.
+P1 (saved searches, earnings dashboard, review moderation, cancellation fees) stays cut. Pick it up only on request.
+Open question left with Shane: Ledger posts #36 and #63 say the VP's organization was 150+ people. Shane says 250+
+is the marketing org under the budget work and 150+ was creative capacity, so those two may need a wording check.
