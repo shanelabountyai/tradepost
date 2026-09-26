@@ -105,9 +105,9 @@ and asserts every job ends terminal with a balanced ledger.
 
 ## Concede before you're asked
 
-- **Payments are simulated.** The ledger is real and balanced; no card is charged and no money moves. Stripe is not wired.
+- **Payments are simulated.** The ledger is real and balanced; no card is charged and no money moves. Nothing in the job flow calls Stripe.
 - **Not deployed.** Local only, demo accounts only.
 - **The 72-hour auto-confirm is proven in tests, not on screen.** It runs from `/api/cron` on the injected clock. Locally `CRON_SECRET` is unset, so the route refuses. To show it, point at the seeded-month test.
 - **The UI is deliberately plain.** Two state machines, the ledger and the guards were the scope. There is no styling pass and no geocoder.
-- **P1 is cut.** No evidence uploads, no notifications, no provider payouts.
+- **P1 is cut.** No evidence uploads and no provider payouts.
 - **Reviews and statements read as text only.** Disputes take a written statement, not photos.
