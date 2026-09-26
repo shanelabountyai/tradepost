@@ -1,6 +1,9 @@
 import type { SessionCtx } from '@/core/auth/session';
 import type { OrgCtx } from '@/core/authz/guards';
+import { notFound } from 'next/navigation';
+import { now } from '@/core/clock';
 import { db } from '@/core/db';
+import type { Prisma } from '@/generated/prisma/client';
 import type { ServiceCategory } from '@/generated/prisma/enums';
 
 // P0-1 (D-001): the only door to provider-owned tables. Every query through these clients has its
@@ -78,4 +81,66 @@ export function bookableListing(id: string) {
  */
 export function dueForAutoConfirm(cutoff: Date) {
   return db.job.findMany({ where: { status: 'completed', completedAt: { lte: cutoff } }, select: { id: true, orgId: true } });
+}
+
+/**
+ * Admin (P0-6): runs `fn` in one transaction with a job client scoped to the job's own provider, so a
+ * dispute resolution's ledger rows and its audit row commit together. Callers pass requirePlatformAdmin first.
+ */
+export async function inProviderTx<T>(
+  jobId: string,
+  fn: (jobs: ReturnType<typeof providerDb>['job'], tx: Prisma.TransactionClient, orgId: string) => Promise<T>,
+) {
+  const j = await db.job.findUnique({ where: { id: jobId }, select: { orgId: true } });
+  if (!j) notFound();
+  const x = db.$extends({ query: { job: tenantFilter({ orgId: j.orgId }) } });
+  return x.$transaction((tx) => fn(tx.job as unknown as ReturnType<typeof providerDb>['job'], tx as unknown as Prisma.TransactionClient, j.orgId));
+}
+
+/** Admin (P0-6): every open dispute across providers, with both statements. Callers pass requirePlatformAdmin first. */
+export function openDisputes() {
+  return db.job.findMany({
+    where: { status: 'disputed' },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true, date: true, amountCents: true,
+      org: { select: { name: true } }, client: { select: { email: true } }, listing: { select: { title: true } }, dispute: true,
+    },
+  });
+}
+
+/**
+ * P0-5, the one include that reads reviews: a party sees its own review, and the other's only once
+ * published. Spread it into a scoped job query: `include: { ...reviewsVisibleTo('client') }`.
+ */
+export const reviewsVisibleTo = (party: 'client' | 'provider') => ({
+  reviews: { where: { OR: [{ by: party }, { publishedAt: { not: null } }] }, select: { by: true, stars: true, body: true, publishedAt: true } },
+});
+
+/**
+ * System (P0-5): publishes a job's unpublished reviews, and adds a newly published client review's stars
+ * to its provider's rating. The `publishedAt: null` guard makes that happen once, however many callers race.
+ * `onlyIfBoth`: the submit path, which publishes only once both parties have reviewed.
+ */
+export function publishReviews(jobId: string, onlyIfBoth: boolean) {
+  return db.$transaction(async (tx) => {
+    const job = await tx.job.findUniqueOrThrow({ where: { id: jobId }, select: { orgId: true, reviews: { select: { by: true, stars: true } } } });
+    if (onlyIfBoth && job.reviews.length < 2) return;
+    const at = now();
+    const client = await tx.review.updateMany({ where: { jobId, by: 'client', publishedAt: null }, data: { publishedAt: at } });
+    await tx.review.updateMany({ where: { jobId, by: 'provider', publishedAt: null }, data: { publishedAt: at } });
+    const stars = job.reviews.find((r) => r.by === 'client')?.stars;
+    if (client.count && stars) {
+      await tx.providerRating.upsert({
+        where: { orgId: job.orgId },
+        create: { orgId: job.orgId, count: 1, sum: stars },
+        update: { count: { increment: 1 }, sum: { increment: stars } },
+      });
+    }
+  });
+}
+
+/** System (cron, P0-5): closed jobs whose review window ended with a review still unpublished. */
+export function reviewsDue(closedBefore: Date) {
+  return db.job.findMany({ where: { closedAt: { lte: closedBefore }, reviews: { some: { publishedAt: null } } }, select: { id: true } });
 }

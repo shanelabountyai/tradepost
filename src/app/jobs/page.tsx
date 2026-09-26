@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { requireUser } from '@/core/auth/session';
 import { ActionForm } from '@/core/ui/action-form';
 import { AUTO_CONFIRM_MS, escrow } from '@/lib/jobs';
-import { clientDb } from '@/lib/tenancy';
-import { cancelJob, confirmJob, withdrawJob } from './actions';
+import { clientDb, reviewsVisibleTo } from '@/lib/tenancy';
+import { addStatement, cancelJob, confirmJob, disputeJob, reviewPro, withdrawJob } from './actions';
+import { DisputePanel, ReviewPanel } from './panels';
 
 export const metadata = { title: 'Your bookings' };
 
@@ -14,7 +15,7 @@ export default async function Bookings() {
   const s = await requireUser();
   const jobs = await clientDb(s).job.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { listing: { select: { title: true } }, org: { select: { name: true } }, ledger: true },
+    include: { listing: { select: { title: true } }, org: { select: { name: true } }, ledger: true, ...reviewsVisibleTo('client') },
   });
   const moves = {
     requested: [[withdrawJob, 'Withdraw request']],
@@ -36,6 +37,7 @@ export default async function Bookings() {
               {$(j.amountCents)} · <strong>{j.status.replace('_', ' ')}</strong>
               {e.inEscrow > 0 && <> · {$(e.inEscrow)} held by Tradepost</>}
               {j.ledger.filter((r) => r.kind === 'refund').map((r) => <span key={r.id}> · {$(r.amountCents)} refunded</span>)}
+              {j.ledger.filter((r) => r.kind === 'release').map((r) => <span key={r.id}> · {$(r.amountCents)} paid to the pro</span>)}
             </p>
             {j.status === 'completed' && j.completedAt && (
               <p>Confirms automatically {new Date(j.completedAt.getTime() + AUTO_CONFIRM_MS).toISOString().slice(0, 16).replace('T', ' ')} UTC.</p>
@@ -46,6 +48,8 @@ export default async function Bookings() {
                 <button type="submit">{label}</button>
               </ActionForm>
             ))}
+            <DisputePanel id={j.id} status={j.status} open={disputeJob} add={addStatement} />
+            <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="client" review={reviewPro} />
           </section>
         );
       })}

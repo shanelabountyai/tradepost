@@ -93,3 +93,42 @@ without the guard. Both mutations (the status guard removed, and the release row
 `src/modules` is template-owned. The hold is a ledger fact, and the PRD makes payments a non-goal. An org with money history
 cannot be deleted (Restrict + append-only), so the template's delete-org page errors for it, and that is deliberate.
 Audit rows are written after the move, not in the same transaction. P0-6's frozen-funds resolution must audit atomically.
+
+## D-005 — P0-5/P0-6 blind reviews and disputes (2026-09-26)
+
+**Asked and answered:**
+- **The platform-admin gate is a `PlatformAdmin` table** (userId PK, no FK, so the template's `User` stays untouched).
+  Granting is inserting a row. `requirePlatformAdmin` (`src/lib/admin.ts`) returns notFound for a non-admin, so the
+  surface does not announce itself, and it requires MFA, as the org guard does for owners (INV-22). The rejected
+  options were an env allowlist (per-environment drift) and a platform org (it conflates a provider org with the platform).
+- **Evidence is text statements only.** Each party gets one statement, which it can replace while the dispute is open.
+  File upload is deferred to P1, because the foundation has no storage and upload would roughly double P0-6.
+
+**Chose:**
+- **Reviews:** `Review(jobId, by: client|provider, stars 1..5 CHECK, body, publishedAt)`, unique per party per job. A
+  review is allowed only on a `closed` job, before `closedAt + 14d` (the injected clock). Publication happens when both
+  reviews exist (the submit path) or when the window ends (`publishDueReviews` in `/api/cron`). Publishing the client's
+  review adds its stars to `ProviderRating` exactly once, guarded by `updateMany … publishedAt: null` in the same
+  transaction. The provider's review of the client is published but never aggregated.
+- **The blind read is structural.** `reviewsVisibleTo(party)` in the tenancy layer is the only include that reads
+  reviews: it returns the party's own review, and the other's only once published. The tenancy lint now covers `review`
+  and `dispute` as models, and it flags a `reviews:` / `dispute:` relation token anywhere outside `src/lib/`, so a page
+  cannot `include: { reviews: true }` its way around the rule.
+- **Disputes:** `dispute` (client or provider, from `in_progress | completed` → `disputed`, money null = frozen) and
+  `resolve` (admin only, `disputed → closed`, money `split`) join `TRANSITIONS`. `from` may now be a list, and the status
+  guard writes `where: { status: <the status read> }`. The only way out of `disputed` is `resolve`, and a test pins that.
+  A split refunds `refundCents` and releases the remainder, and the 10% fee is taken only on the released part.
+  `settleDispute` runs the transition and the `dispute.resolve` audit row in one transaction (`inProviderTx`), which
+  closes D-004's ceiling for frozen funds. A resolved dispute closes the job, so the review window opens.
+- **Statements live on `Dispute`**, not `Job`. A scoped job read returns only Job scalars, so a party can never pull
+  the statements. The admin page (`/admin/disputes`) reads them through `openDisputes()`.
+- **The admin action takes `jobId` as a regex string, not `ref('job')`,** following the precedent of `requestJob`. An admin
+  works across providers, so INV-02 ("another org's id is refused") would be the opposite of the action's purpose.
+  The guard is pinned in `jobs.test.ts`: notFound for a non-admin, MFA required, then it settles.
+
+**Found:** the two blind-review guards were each deleted in turn, and both mutations turned tests red: dropping the
+`publishedAt: null` guard double-counted a rating, and dropping the visibility filter leaked the review.
+
+**Known ceilings:** there is no evidence upload yet. Dispute outcomes reach the parties through the ledger lines on their
+job pages. There is no dedicated "outcome" text. The first-rating `upsert` for a provider can hit P2002 if two of its jobs
+publish their first reviews at the same instant. That is rare, and a retry fixes it. Admins are granted by SQL, and the demo seed will add one.

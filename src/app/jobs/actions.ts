@@ -6,7 +6,8 @@ import { ref, userAction } from '@/core/authz/action';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import { Refused } from '@/core/errors';
-import { transition, type Transition } from '@/lib/jobs';
+import { submitStatement, transition, type Transition } from '@/lib/jobs';
+import { submitReview } from '@/lib/reviews';
 import { weekday } from '@/lib/search';
 import { bookableListing, clientDb } from '@/lib/tenancy';
 
@@ -21,6 +22,30 @@ const move = (name: Transition) =>
 export const withdrawJob = move('withdraw');
 export const cancelJob = move('cancel');
 export const confirmJob = move('confirm');
+
+// P0-6: a dispute freezes the escrow; the statement is read by platform admins only.
+const statement = z.string().trim().min(1, 'Say what went wrong.').max(4000);
+
+export const disputeJob = userAction(z.object({ id: ref('job'), statement }), async (s, { id, statement }) => {
+  await transition(clientDb(s).job, id, 'dispute', 'client', { statement });
+  await audit({ userId: s.userId }, 'job.dispute', { targetType: 'job', targetId: id });
+  redirect('/jobs');
+});
+
+export const addStatement = userAction(z.object({ id: ref('job'), statement }), async (s, { id, statement }) => {
+  await submitStatement(clientDb(s).job, id, 'client', statement);
+  redirect('/jobs');
+});
+
+// P0-5: the client's review of the pro, hidden from the pro until published.
+export const reviewPro = userAction(
+  z.object({ id: ref('job'), stars: z.coerce.number().int().min(1).max(5), body: z.string().trim().max(2000).default('') }),
+  async (s, { id, stars, body }) => {
+    await submitReview(clientDb(s).job, id, 'client', stars, body);
+    await audit({ userId: s.userId }, 'review.submit', { targetType: 'job', targetId: id });
+    redirect('/jobs');
+  },
+);
 
 // Not ref('listing'): a listing id is public (it came from /search), and booking another provider's
 // listing is the point, so the harness's "another org's id is refused" (INV-02) does not apply to it.

@@ -1,8 +1,11 @@
 import { requireOrg } from '@/core/authz/guards';
 import { ActionForm } from '@/core/ui/action-form';
 import { AUTO_CONFIRM_MS, escrow } from '@/lib/jobs';
-import { providerDb } from '@/lib/tenancy';
-import { acceptJob, cancelJobAsProvider, completeJob, declineJob, startJob } from './actions';
+import { DisputePanel, ReviewPanel } from '@/app/jobs/panels';
+import { providerDb, reviewsVisibleTo } from '@/lib/tenancy';
+import {
+  acceptJob, addStatementAsProvider, cancelJobAsProvider, completeJob, declineJob, disputeJobAsProvider, reviewClient, startJob,
+} from './actions';
 
 export const metadata = { title: 'Jobs' };
 
@@ -13,7 +16,7 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
   const ctx = await requireOrg((await params).org);
   const jobs = await providerDb(ctx).job.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { listing: { select: { title: true } }, client: { select: { email: true } }, ledger: true },
+    include: { listing: { select: { title: true } }, client: { select: { email: true } }, ledger: true, ...reviewsVisibleTo('provider') },
   });
   const moves = { requested: [[acceptJob, 'Accept'], [declineJob, 'Decline']], accepted: [[startJob, 'Start'], [cancelJobAsProvider, 'Cancel and refund']], in_progress: [[completeJob, 'Mark complete']] } as const;
 
@@ -30,6 +33,7 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
               {j.client.email} · {$(j.amountCents)} · <strong>{j.status.replace('_', ' ')}</strong>
               {e.inEscrow > 0 && <> · {$(e.inEscrow)} held</>}
               {j.ledger.filter((r) => r.kind === 'release').map((r) => <span key={r.id}> · {$(r.amountCents)} paid to you</span>)}
+              {j.ledger.filter((r) => r.kind === 'refund').map((r) => <span key={r.id}> · {$(r.amountCents)} refunded to the client</span>)}
             </p>
             {j.status === 'completed' && j.completedAt && (
               <p>Waiting for the client. Auto-confirms {new Date(j.completedAt.getTime() + AUTO_CONFIRM_MS).toISOString().slice(0, 16).replace('T', ' ')} UTC.</p>
@@ -40,6 +44,8 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
                 <button type="submit">{label}</button>
               </ActionForm>
             ))}
+            <DisputePanel id={j.id} status={j.status} open={disputeJobAsProvider.bind(null, ctx.slug)} add={addStatementAsProvider.bind(null, ctx.slug)} />
+            <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" review={reviewClient.bind(null, ctx.slug)} />
           </section>
         );
       })}

@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { resolveDispute } from '@/app/admin/disputes/actions';
 import * as providerActions from '@/app/o/[org]/jobs/actions';
-import { requestJob } from '@/app/jobs/actions';
+import { requestJob, reviewPro } from '@/app/jobs/actions';
 import { advanceClock, now } from '@/core/clock';
 import { db } from '@/core/db';
 import { Refused } from '@/core/errors';
-import { AUTO_CONFIRM_MS, autoConfirmDue, escrow, ledgerRows, transition, TRANSITIONS } from '@/lib/jobs';
-import { clientDb, providerDb } from '@/lib/tenancy';
+import { AUTO_CONFIRM_MS, autoConfirmDue, escrow, ledgerRows, settleDispute, submitStatement, transition, TRANSITIONS } from '@/lib/jobs';
+import { publishDueReviews, REVIEW_WINDOW_MS, submitReview } from '@/lib/reviews';
+import { clientDb, openDisputes, providerDb, publishReviews, reviewsVisibleTo } from '@/lib/tenancy';
 import { JOB, LISTING } from '../fixtures/app';
 import { resetAuthTables, signInAs } from '../helpers/auth';
 import { NavSignal } from '../helpers/next';
 import { actAs, addMember, makeOrg } from '../helpers/org';
 
-// P0-3/P0-4. Provider P (member u), client C, and one job J at $85 in `requested`.
+// P0-3/4/5/6. Provider P (member u), client C, and one job J at $85 in `requested`.
 let P: Awaited<ReturnType<typeof setup>>;
 async function setup() {
   const p = await makeOrg('p');
@@ -35,7 +37,7 @@ afterEach(async () => {
     const e = escrow(j.ledger);
     const expected = {
       requested: [0, 0], declined: [0, 0], accepted: [j.amountCents, 0], in_progress: [j.amountCents, 0], completed: [j.amountCents, 0],
-      closed: [j.amountCents, j.amountCents], cancelled: e.held ? [j.amountCents, j.amountCents] : [0, 0],
+      closed: [j.amountCents, j.amountCents], disputed: [j.amountCents, 0], cancelled: e.held ? [j.amountCents, j.amountCents] : [0, 0],
     }[j.status];
     expect([e.held, e.out], `job ${j.status}`).toEqual(expected);
   }
@@ -99,7 +101,9 @@ describe('lifecycle', () => {
 
   it('the provider cannot release: no action for it, and transition() rejects the actor', async () => {
     await run('accept', 'start', 'complete');
-    expect(Object.keys(providerActions).sort()).toEqual(['acceptJob', 'cancelJobAsProvider', 'completeJob', 'declineJob', 'startJob']);
+    expect(Object.keys(providerActions).sort()).toEqual([
+      'acceptJob', 'addStatementAsProvider', 'cancelJobAsProvider', 'completeJob', 'declineJob', 'disputeJobAsProvider', 'reviewClient', 'startJob',
+    ]);
     await expect(transition(P.pro, P.j.id, 'confirm', 'provider')).rejects.toThrow(/cannot confirm/);
     expect((await job()).status).toBe('completed');
   });
@@ -163,5 +167,142 @@ describe('requestJob', () => {
     await signInAs(P.u.id, { mfa: true });
     expect(await requestJob(at(today))).toEqual({ error: 'You cannot book your own business.' });
     expect(await db.job.count()).toBe(1);
+  });
+});
+
+describe('disputes (P0-6)', () => {
+  const dispute = (by: 'client' | 'provider' = 'client') => transition(by === 'client' ? P.cli : P.pro, P.j.id, 'dispute', by, { statement: `${by} says` });
+  const admin = async () => {
+    const a = await db.user.create({ data: { email: 'admin@example.test', totpEnrolledAt: now() } });
+    await db.platformAdmin.create({ data: { userId: a.id } });
+    return a;
+  };
+
+  it('opens from in progress or completed, freezes the escrow, and halts auto-confirm', async () => {
+    await run('accept');
+    await expect(dispute()).rejects.toThrow(/while the job is accepted/);
+    await run('start', 'complete');
+    await dispute('provider');
+    advanceClock(AUTO_CONFIRM_MS * 2);
+    expect(await autoConfirmDue()).toEqual({ confirmed: 0 });
+    expect((await job()).status).toBe('disputed');
+    expect(await ledger()).toEqual([['hold', 8500]]);
+  });
+
+  it('frozen funds move only by the admin resolution: no other transition leaves `disputed`', async () => {
+    const out = Object.entries(TRANSITIONS).filter(([, t]) => ([t.from].flat() as string[]).includes('disputed'));
+    expect(out.map(([n, t]) => [n, t.by])).toEqual([['resolve', ['admin']]]);
+    await run('accept', 'start');
+    await dispute();
+    await expect(transition(P.pro, P.j.id, 'resolve', 'provider')).rejects.toThrow(/cannot resolve/);
+    await expect(transition(P.cli, P.j.id, 'confirm', 'client')).rejects.toBeInstanceOf(Refused);
+    expect(await ledger()).toEqual([['hold', 8500]]);
+  });
+
+  it.each([
+    [2500, [['hold', 8500], ['release', 5400], ['fee', 600], ['refund', 2500]]], // split: the fee is on the released part only
+    [8500, [['hold', 8500], ['refund', 8500]]],
+    [0, [['hold', 8500], ['release', 7650], ['fee', 850]]],
+  ])('a resolution refunding %i writes the split, closes the job and audits, together', async (refund, rows) => {
+    const a = await admin();
+    await run('accept', 'start', 'complete');
+    await dispute();
+    await settleDispute(P.j.id, a.id, refund);
+    expect(await ledger()).toEqual(rows);
+    expect(await job()).toMatchObject({ status: 'closed', closedAt: expect.any(Date) });
+    expect(await db.dispute.findUnique({ where: { jobId: P.j.id } })).toMatchObject({ resolvedBy: a.id, refundCents: refund });
+    expect(await db.auditEvent.findMany({ where: { action: 'dispute.resolve' }, select: { actorUserId: true, orgId: true, data: true } }))
+      .toEqual([{ actorUserId: a.id, orgId: P.p.id, data: { refundCents: refund } }]);
+  });
+
+  it('a refund over the hold is refused, and neither the ledger nor the audit log moves', async () => {
+    const a = await admin();
+    await run('accept', 'start');
+    await dispute();
+    await expect(settleDispute(P.j.id, a.id, 8501)).rejects.toThrow(/between \$0 and the amount held/);
+    await expect(settleDispute(P.j.id, a.id, 8500)).resolves.toBeUndefined();
+    await expect(settleDispute(P.j.id, a.id, 0)).rejects.toThrow(/while the job is closed/); // settled once
+    expect(await ledger()).toEqual([['hold', 8500], ['refund', 8500]]);
+    expect(await db.auditEvent.count({ where: { action: 'dispute.resolve' } })).toBe(1);
+  });
+
+  it('statements reach the admin view only: a party cannot read the dispute through its own job', async () => {
+    await run('accept', 'start');
+    await dispute();
+    await submitStatement(P.pro, P.j.id, 'provider', 'provider says');
+    expect((await openDisputes())[0]!.dispute).toMatchObject({ openedBy: 'client', clientStatement: 'client says', providerStatement: 'provider says' });
+    for (const side of [P.cli, P.pro]) expect(await side.findFirst({ where: { id: P.j.id } })).not.toHaveProperty('dispute');
+    await expect(submitStatement(P.cli, (await db.job.create({ data: { ...JOB, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } })).id, 'client', 'x'))
+      .rejects.toThrow(/no open dispute/);
+  });
+
+  it('the resolve action: notFound for a non-admin, MFA required, then settles', async () => {
+    const a = await admin();
+    await run('accept', 'start');
+    await dispute();
+    const input = { jobId: P.j.id, refund: '25.50' };
+    await signInAs(P.c.id);
+    expect(await resolveDispute(input).catch(outcome)).toBe('notFound');
+    await signInAs(a.id); // enrolled, MFA not passed
+    expect(await resolveDispute(input).catch((e) => (e instanceof NavSignal ? e.to : e))).toBe('/login/mfa');
+    await signInAs(a.id, { mfa: true });
+    expect(await resolveDispute(input).catch(outcome)).toBe('redirect');
+    expect(await ledger()).toEqual([['hold', 8500], ['release', 5355], ['fee', 595], ['refund', 2550]]);
+  });
+});
+
+describe('blind reviews (P0-5)', () => {
+  const close = () => run('accept', 'start', 'complete', 'confirm');
+  const seen = async (side: 'client' | 'provider') =>
+    (await (side === 'client' ? P.cli : P.pro).findFirstOrThrow({ where: { id: P.j.id }, include: reviewsVisibleTo(side) })).reviews.map((r) => [r.by, r.stars]);
+  const rating = () => db.providerRating.findUnique({ where: { orgId: P.p.id }, select: { count: true, sum: true } });
+
+  it('only on a closed job, once per party, inside the 14-day window', async () => {
+    await expect(submitReview(P.cli, P.j.id, 'client', 5, '')).rejects.toThrow(/once it is closed/);
+    await close();
+    await submitReview(P.cli, P.j.id, 'client', 5, '');
+    await expect(submitReview(P.cli, P.j.id, 'client', 1, '')).rejects.toThrow(/already reviewed/);
+    advanceClock(REVIEW_WINDOW_MS);
+    await expect(submitReview(P.pro, P.j.id, 'provider', 4, '')).rejects.toThrow(/window has ended/);
+  });
+
+  it("neither party reads the other's review before publication, through the actions and the pages' query", async () => {
+    await close();
+    await signInAs(P.c.id);
+    expect(await reviewPro({ id: P.j.id, stars: '2', body: 'Late' }).catch(outcome)).toBe('redirect');
+    expect(await seen('provider')).toEqual([]); // the pro cannot see it
+    expect(await seen('client')).toEqual([['client', 2]]);
+    expect(await rating()).toBeNull(); // unpublished stars do not count yet
+
+    await actAs(P.u.id, 'p');
+    expect(await providerActions.reviewClient('p', { id: P.j.id, stars: '5', body: '' }).catch(outcome)).toBe('redirect');
+    expect(await seen('provider')).toEqual([['client', 2], ['provider', 5]]);
+    expect(await seen('client')).toEqual([['client', 2], ['provider', 5]]);
+    expect(await rating()).toEqual({ count: 1, sum: 2 }); // only the client's review rates the pro
+  });
+
+  it('a lone review publishes when the window ends, exactly once', async () => {
+    await close();
+    await submitReview(P.cli, P.j.id, 'client', 4, '');
+    advanceClock(REVIEW_WINDOW_MS - 60_000);
+    expect(await publishDueReviews()).toEqual({ published: 0 });
+    expect(await seen('provider')).toEqual([]);
+    advanceClock(REVIEW_WINDOW_MS);
+    expect(await publishDueReviews()).toEqual({ published: 1 });
+    expect(await publishDueReviews()).toEqual({ published: 0 });
+    await publishReviews(P.j.id, false); // a late racer finds nothing left to publish
+    expect(await seen('provider')).toEqual([['client', 4]]);
+    expect(await rating()).toEqual({ count: 1, sum: 4 });
+  });
+
+  it('the aggregate matches a hand tally', async () => {
+    const stars = [5, 4, 2, 5];
+    for (const n of stars) {
+      const j = await db.job.create({ data: { ...JOB, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } });
+      for (const t of ['accept', 'start', 'complete', 'confirm'] as const) await transition(t === 'confirm' ? P.cli : P.pro, j.id, t, t === 'confirm' ? 'client' : 'provider');
+      await submitReview(P.cli, j.id, 'client', n, '');
+      await submitReview(P.pro, j.id, 'provider', 1, ''); // the pro's review of the client never counts
+    }
+    expect(await rating()).toEqual({ count: 4, sum: 16 }); // mean 4.0
   });
 });

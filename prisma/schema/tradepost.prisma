@@ -57,6 +57,9 @@ model Job {
   completedAt DateTime? @db.Timestamptz(6) // starts the 72h auto-confirm
   closedAt    DateTime? @db.Timestamptz(6) // starts the 14d review window
   ledger      LedgerEntry[]
+  // Read only through src/lib (tests/unit/tenancy-lint.test.ts): reviews are blind and statements are admin-only.
+  reviews     Review[]
+  dispute     Dispute?
 
   @@index([orgId])
   @@index([clientId])
@@ -69,7 +72,8 @@ enum JobStatus {
   declined
   in_progress
   completed // by the provider; awaiting client confirmation or auto-confirm
-  closed // confirmed by the client or auto-confirmed; funds released
+  closed // confirmed by the client, auto-confirmed, or a dispute resolved; funds paid out
+  disputed // P0-6: funds frozen until an admin resolves
   cancelled
 }
 
@@ -92,4 +96,47 @@ enum LedgerKind {
   release // escrow → provider
   fee // escrow → platform
   refund // escrow → client
+}
+
+enum Party {
+  client
+  provider
+}
+
+// P0-5: blind mutual reviews. One per party per closed job, within 14 days of closedAt. Hidden from the
+// other party until publishedAt is set: when both exist, or when the window ends (cron). Publishing the
+// client's review adds its stars to ProviderRating, once (the publishedAt IS NULL guard).
+model Review {
+  id          String    @id @default(uuid()) @db.Uuid
+  jobId       String    @db.Uuid
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  by          Party
+  stars       Int // 1..5 (CHECK)
+  body        String    @default("")
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  publishedAt DateTime? @db.Timestamptz(6)
+
+  @@unique([jobId, by])
+  @@index([publishedAt])
+}
+
+// P0-6: one per job. Opened with the job's move to `disputed`; resolved with its move to `closed`.
+// Statements are visible to platform admins only (D-005: text only, evidence upload is P1).
+model Dispute {
+  jobId             String    @id @db.Uuid
+  job               Job       @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  openedBy          Party
+  openedAt          DateTime  @default(now()) @db.Timestamptz(6)
+  clientStatement   String?
+  providerStatement String?
+  resolvedAt        DateTime? @db.Timestamptz(6)
+  resolvedBy        String?   @db.Uuid // the platform admin
+  refundCents       Int? // the client's share; the rest is released less the fee
+}
+
+// Platform admins (D-005): resolve disputes across providers. Granted by inserting a row; no FK so a
+// grant is a plain fact the template's User model does not need to know about.
+model PlatformAdmin {
+  userId    String   @id @db.Uuid
+  grantedAt DateTime @default(now()) @db.Timestamptz(6)
 }
