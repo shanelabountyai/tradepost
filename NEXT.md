@@ -13,5 +13,4 @@
 ## Next item: none required
 
 P1 (saved searches, earnings dashboard, review moderation, cancellation fees) stays cut. Pick it up only on request.
-Open question left with Shane: Ledger posts #36 and #63 say the VP's organization was 150+ people. Shane says 250+
-is the marketing org under the budget work and 150+ was creative capacity, so those two may need a wording check.
+Ledger posts #36 and #63 corrected 2026-09-26: the VP's organization now reads 250+ (matches #56). Ledger version 44.
