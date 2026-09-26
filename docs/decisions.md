@@ -149,3 +149,26 @@ publish their first reviews at the same instant. That is rare, and a retry fixes
 
 **Known ceilings:** there is no per-user rate limit on sending, which the foundation's `rate-limit.ts` can add if spam
 shows up. Messages are allowed in every job status. Each admin page render counts as one audited read, including a reload.
+
+## D-007 — capstone demo seed and the seeded month (2026-09-26)
+
+**Chose:**
+- **`scripts/seed-demo.ts` replaces the template's acme/globex seed.** It seeds two providers: Brightline Plumbing (owner,
+  admin and member) and Fernway Cleaning (owner). It also seeds a client and a platform admin (`ops@`). That is six demo
+  users, four of them TOTP-enrolled, which is the count template-owned INV-27 asserts, so the invariant stands unedited.
+- **The capstone runs through the real code paths**, not inserted rows: `transition`, `postMessage`, `submitReview`,
+  `submitStatement` and `settleDispute`. Brightline's $185 job runs twice. The first is confirmed, with both reviews
+  published. The second is disputed and split, with $74 refunded, $99.90 released and a $11.10 fee. Each has a thread.
+  A re-run finds the client's jobs and adds none.
+- **`seedMonth()`** (`npm run seed:demo -- --month`) drives the PRD's month through the injected clock. It has 30
+  providers and 120 clients, 10 of whom also own a provider. There are 200 jobs over 30 days, the cron runs daily, and
+  every path is covered: decline, withdraw, cancel, confirm, 72h auto-confirm, and 15 disputes. Those disputes are opened
+  by both sides, with no refund, a partial refund and a full refund. It is deterministic: job *i*'s provider, client and
+  path follow from *i*. `tests/integration/seed.test.ts` asserts every job is terminal with its ledger balanced, and that
+  the platform's holds equal its payouts. It also checks that no client ever booked their own business.
+
+**Found:** a negative control (skipping the month-end cron drain) left auto-confirm jobs `completed`, and the test went
+red, naming the job.
+
+**Known ceilings:** the month's users are not `isDemo`, so they cannot be signed into. They exist to fill search and to
+prove the invariant.
