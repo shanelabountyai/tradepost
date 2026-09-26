@@ -8,7 +8,7 @@ thread and a balanced ledger. `-- --month` adds the PRD's seeded month (200 jobs
 
 ## Next item: project closure (global definition of done)
 
-1. `docs/DEMO.md`: screen by screen, from the seeded accounts in `npm run seed:demo`. Sign in as `client@`, then the
+1. ✅ done 2026-09-26 — `docs/DEMO.md`: screen by screen, from the seeded accounts in `npm run seed:demo`. Sign in as `client@`, then the
    Brightline owner, then `ops@` at `/admin/disputes`. It needs `DEMO_MODE=1`. Run every command in it once.
 2. The exec brief (`exec-brief` skill): *Tradepost in Brief*.
 3. LinkedIn posts in the Ledger. Mine `docs/decisions.md` "Found:" lines first.
