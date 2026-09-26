@@ -172,3 +172,19 @@ red, naming the job.
 
 **Known ceilings:** the month's users are not `isDemo`, so they cannot be signed into. They exist to fill search and to
 prove the invariant.
+
+## D-008 — post-closure feedback run (2026-09-26)
+
+Shane chose the full run over personas-only, gap-only or red-team-only: breadth is worth the tokens once, after closure.
+Five agents run **in sequence**, never overlapping, because only one server and one sweep may run at a time:
+
+1. **Personas (Sonnet ×3).** A client, a provider and an admin each drive the seeded demo (`npm run seed:demo`) in a
+   browser against the production build on :4200, following `docs/DEMO.md`. This also closes the one closure gap:
+   stops 2–5 were never browser-driven.
+2. **Red team (Opus ×1).** Tries to break the hard rules: another provider's row (must 404), a provider releasing funds,
+   reading a review before publication, and unbalancing a job's ledger.
+3. **Gap analysis (Sonnet ×1).** Compares the PRD and shipped code against Thumbtack/Angi-style norms and returns a ranked list
+   of missing features, marking which ones are the P1 cuts made on purpose.
+
+**Output:** `docs/FEEDBACK.md` with one findings list ranked by severity. Nothing is fixed in the same pass; fixes are
+separate items.
