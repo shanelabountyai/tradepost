@@ -66,3 +66,16 @@ export function clientDb(s: Pick<SessionCtx, 'userId'>) {
   const x = db.$extends({ query: { job: tenantFilter({ clientId: s.userId }) } });
   return { job: x.job };
 }
+
+/** Public: what a client needs to book one listing. A listing id is public, like the search result it came from. */
+export function bookableListing(id: string) {
+  return db.listing.findUnique({ where: { id }, select: { id: true, orgId: true, rateCents: true, days: true } });
+}
+
+/**
+ * System (cron): completed jobs whose 72h confirmation window has passed, across providers. Read
+ * only; each is then moved through providerDb for its own org, so the write path stays scoped.
+ */
+export function dueForAutoConfirm(cutoff: Date) {
+  return db.job.findMany({ where: { status: 'completed', completedAt: { lte: cutoff } }, select: { id: true, orgId: true } });
+}

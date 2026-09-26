@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 // P0-1: provider-owned tables are reached only through src/lib/tenancy.ts. Scans src/ (tests and
 // seed scripts set up fixtures directly, on purpose). Add a model here when it becomes provider-owned.
-const MODELS = ['listing', 'job'];
+// ledgerEntry: money rows are written only as part of a job transition (src/lib/jobs.ts), never directly.
+const MODELS = ['listing', 'job', 'ledgerEntry'];
 const LAYER = 'src/lib/tenancy.ts';
 const ROOT = path.resolve(import.meta.dirname, '../..');
 

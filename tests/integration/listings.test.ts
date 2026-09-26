@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { deleteListing } from '@/app/o/[org]/listings/actions';
 import { db } from '@/core/db';
 import { searchableListings } from '@/lib/tenancy';
-import { LISTING } from '../fixtures/app';
+import { JOB, LISTING } from '../fixtures/app';
 import { resetAuthTables } from '../helpers/auth';
 import { NavSignal } from '../helpers/next';
 import { actAs, addMember, makeOrg } from '../helpers/org';
@@ -45,7 +45,7 @@ describe('deleteListing', () => {
     const u = await addMember(p.id, 'member', 'u@example.test');
     const c = await db.user.create({ data: { email: 'c@example.test' } });
     const [busy, idle] = await Promise.all(['busy', 'idle'].map((title) => db.listing.create({ data: { ...LISTING, orgId: p.id, title } })));
-    await db.job.create({ data: { orgId: p.id, listingId: busy!.id, clientId: c.id } });
+    await db.job.create({ data: { ...JOB, orgId: p.id, listingId: busy!.id, clientId: c.id } });
     await actAs(u.id, 'p');
 
     expect(await deleteListing('p', { id: busy!.id })).toEqual({ error: 'This listing has jobs, so it cannot be deleted.' });

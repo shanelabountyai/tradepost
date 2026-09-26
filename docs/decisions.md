@@ -60,3 +60,36 @@ only once. Every `ref('listing')` action would therefore have hit a stale id. Th
 
 **Known ceilings:** the client types coordinates, because there is no geocoder. The distance filter runs in memory after the SQL narrowing, and
 a bounding-box `WHERE` is the upgrade if the listing count grows. Availability is by weekday only, because hours arrive with booking.
+
+## D-004 — P0-3/P0-4 job lifecycle and escrow ledger (2026-09-25)
+
+**Chose:**
+- **One transition table** (`TRANSITIONS` in `src/lib/jobs.ts`). Each move has a fixed actor set, one `from`, one `to`
+  and one money effect. `transition()` is the only way a job moves. It reads through the caller's scoped client, so a
+  foreign id is `notFound`, and it writes with `where: { id, status: from }`, so a stale read (a double-click, or the
+  cron racing a confirm) matches nothing and is refused. The ledger rows go into the same nested update as the status change.
+- **States:** `requested → accepted | declined`, `requested → cancelled` (the client withdraws, nothing held),
+  `accepted → cancelled` (either side, full refund), `accepted → in_progress → completed → closed`. The PRD's
+  `confirmed_by_client | auto_confirmed → closed` collapse into `closed` plus `closedAt`. The audit event
+  (`job.confirm` with a user, `job.autoConfirm` with no actor) records which one it was. An in-progress job cannot be
+  cancelled; that is a dispute (P0-6).
+- **Ledger:** `LedgerEntry(kind: hold | release | fee | refund, amountCents > 0)`. Rows are append-only (a trigger)
+  and `Restrict` on the job. The fee is 10%, rounded down, and the provider gets the rest, so release + fee = hold exactly.
+  The invariant (hold = `amountCents` once accepted, payouts are 0 until settled and then equal the hold) is
+  asserted over every job after every test in `tests/integration/jobs.test.ts`.
+- **Release is by the client or `system` only.** The table says so, a test pins it, and no provider action exists for it.
+- **Auto-confirm:** `autoConfirmDue()` runs in `/api/cron`. It reads due jobs through `dueForAutoConfirm` (a read-only
+  system door in the tenancy layer), then moves each one through `providerDb` for its own org.
+- **Booking:** `requestJob` snapshots the listing rate into `Job.amountCents` and refuses a past date, a day off and
+  self-booking by a member of the provider org. Self-booking would let a provider review itself (P0-5).
+  Its `listingId` is a regex-checked string, not `ref('listing')`. A listing id is public, and booking another org's
+  listing is the point, so the harness's "another org's id is refused" (INV-02) would be a false alarm.
+
+**Found:** the first race test fired three `confirm`s through `Promise.allSettled`, and it passed even with the status
+guard deleted. The in-process calls serialize, so nothing raced. It was replaced by a stale-read replay, which fails
+without the guard. Both mutations (the status guard removed, and the release rows removed) turn tests red.
+
+**Known ceilings:** no real charge happens, because the foundation's `PaymentProvider` covers subscriptions only and
+`src/modules` is template-owned. The hold is a ledger fact, and the PRD makes payments a non-goal. An org with money history
+cannot be deleted (Restrict + append-only), so the template's delete-org page errors for it, and that is deliberate.
+Audit rows are written after the move, not in the same transaction. P0-6's frozen-funds resolution must audit atomically.

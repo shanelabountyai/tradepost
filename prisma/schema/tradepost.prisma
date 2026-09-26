@@ -51,7 +51,45 @@ model Job {
   // NoAction: a listing with jobs cannot be deleted (money rows stay), but an org delete still cascades both
   listing   Listing  @relation(fields: [listingId, orgId], references: [id, orgId], onDelete: NoAction)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
+  date        DateTime  @db.Date // the day booked
+  amountCents Int // the listing's rate when requested; held on accept (P0-3/4)
+  status      JobStatus @default(requested) // moved only by transition() in src/lib/jobs.ts
+  completedAt DateTime? @db.Timestamptz(6) // starts the 72h auto-confirm
+  closedAt    DateTime? @db.Timestamptz(6) // starts the 14d review window
+  ledger      LedgerEntry[]
 
   @@index([orgId])
   @@index([clientId])
+  @@index([status, completedAt])
+}
+
+enum JobStatus {
+  requested
+  accepted
+  declined
+  in_progress
+  completed // by the provider; awaiting client confirmation or auto-confirm
+  closed // confirmed by the client or auto-confirmed; funds released
+  cancelled
+}
+
+// Escrow (P0-4). Append-only (a DB trigger). A job's `hold` row equals Job.amountCents, and once the
+// job is settled its release + fee + refund rows sum to the same amount; tests/integration/jobs.test.ts
+// checks that on every job. Restrict: a settled job cannot be deleted out from under its money.
+model LedgerEntry {
+  id          String     @id @default(uuid()) @db.Uuid
+  jobId       String     @db.Uuid
+  job         Job        @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  kind        LedgerKind
+  amountCents Int // always > 0; the kind says which way it moved
+  createdAt   DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@index([jobId])
+}
+
+enum LedgerKind {
+  hold // client → escrow
+  release // escrow → provider
+  fee // escrow → platform
+  refund // escrow → client
 }

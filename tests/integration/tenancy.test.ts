@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { notFoundOnP2025 } from '@/core/authz/guards';
 import { db } from '@/core/db';
 import { clientDb, providerDb } from '@/lib/tenancy';
-import { LISTING as L } from '../fixtures/app';
+import { JOB, LISTING as L } from '../fixtures/app';
 import { resetAuthTables } from '../helpers/auth';
 import { NavSignal } from '../helpers/next';
 import { actAs, addMember, makeOrg } from '../helpers/org';
@@ -16,8 +16,8 @@ async function setup() {
   const c = await db.user.create({ data: { email: 'c@example.test' } });
   const lP = await db.listing.create({ data: { ...L, orgId: p.id, title: 'P plumbing' } });
   const lQ = await db.listing.create({ data: { ...L, orgId: q.id, title: 'Q painting' } });
-  const jP = await db.job.create({ data: { orgId: p.id, listingId: lP.id, clientId: c.id } });
-  const jQ = await db.job.create({ data: { orgId: q.id, listingId: lQ.id, clientId: u.id } });
+  const jP = await db.job.create({ data: { ...JOB, orgId: p.id, listingId: lP.id, clientId: c.id } });
+  const jQ = await db.job.create({ data: { ...JOB, orgId: q.id, listingId: lQ.id, clientId: u.id } });
   return { p, q, u, c, lP, lQ, jP, jQ, ctxU: await actAs(u.id, 'p') };
 }
 
@@ -58,7 +58,7 @@ describe('client scope', () => {
   });
 
   it("the database refuses a job whose listing is another provider's", async () => {
-    await expect(clientDb({ userId: P.c.id }).job.create({ data: { orgId: P.p.id, listingId: P.lQ.id, clientId: P.c.id } })).rejects.toThrow();
+    await expect(clientDb({ userId: P.c.id }).job.create({ data: { ...JOB, orgId: P.p.id, listingId: P.lQ.id, clientId: P.c.id } })).rejects.toThrow();
   });
 });
 

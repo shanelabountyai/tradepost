@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { requestJob } from '@/app/jobs/actions';
 import { now } from '@/core/clock';
+import { ActionForm } from '@/core/ui/action-form';
 import { ServiceCategory } from '@/generated/prisma/enums';
 import { rankListings, weekday } from '@/lib/search';
 import { searchableListings } from '@/lib/tenancy';
@@ -61,6 +63,11 @@ export default async function Search({ searchParams }: { searchParams: Promise<R
                 {l.ratingCount ? `${l.ratingMean.toFixed(1)}★ (${l.ratingCount})` : 'No reviews yet'} · {l.distanceMiles.toFixed(1)} mi away
               </p>
               {l.description && <p>{l.description}</p>}
+              <ActionForm action={requestJob}>
+                <input type="hidden" name="listingId" value={l.id} />
+                <input type="hidden" name="date" value={q.data!.date} />
+                <button type="submit">Request for {q.data!.date}</button>
+              </ActionForm>
             </li>
           ))}
         </ol>
