@@ -8,6 +8,8 @@ import { Refused } from '@/core/errors';
 import { AUTO_CONFIRM_MS, autoConfirmDue, escrow, ledgerRows, settleDispute, submitStatement, transition, TRANSITIONS } from '@/lib/jobs';
 import { publishDueReviews, REVIEW_WINDOW_MS, submitReview } from '@/lib/reviews';
 import { clientDb, openDisputes, providerDb, publishReviews, reviewsVisibleTo } from '@/lib/tenancy';
+import { adminReadThread, postMessage, THREAD } from '@/lib/threads';
+import AdminThread from '@/app/admin/disputes/[jobId]/thread/page';
 import { JOB, LISTING } from '../fixtures/app';
 import { resetAuthTables, signInAs } from '../helpers/auth';
 import { NavSignal } from '../helpers/next';
@@ -102,7 +104,7 @@ describe('lifecycle', () => {
   it('the provider cannot release: no action for it, and transition() rejects the actor', async () => {
     await run('accept', 'start', 'complete');
     expect(Object.keys(providerActions).sort()).toEqual([
-      'acceptJob', 'addStatementAsProvider', 'cancelJobAsProvider', 'completeJob', 'declineJob', 'disputeJobAsProvider', 'reviewClient', 'startJob',
+      'acceptJob', 'addStatementAsProvider', 'cancelJobAsProvider', 'completeJob', 'declineJob', 'disputeJobAsProvider', 'reviewClient', 'sendMessageAsProvider', 'startJob',
     ]);
     await expect(transition(P.pro, P.j.id, 'confirm', 'provider')).rejects.toThrow(/cannot confirm/);
     expect((await job()).status).toBe('completed');
@@ -304,5 +306,65 @@ describe('blind reviews (P0-5)', () => {
       await submitReview(P.pro, j.id, 'provider', 1, ''); // the pro's review of the client never counts
     }
     expect(await rating()).toEqual({ count: 4, sum: 16 }); // mean 4.0
+  });
+});
+
+describe('threads (P0-7)', () => {
+  const thread = async (side: typeof P.cli) => (await side.findFirstOrThrow({ where: { id: P.j.id }, include: { messages: THREAD } })).messages.map((m) => [m.by, m.body]);
+  const reads = () => db.auditEvent.findMany({ where: { action: 'thread.adminRead' }, select: { actorUserId: true, orgId: true, targetId: true } });
+  const admin = async () => {
+    const a = await db.user.create({ data: { email: 'admin@example.test', totpEnrolledAt: now() } });
+    await db.platformAdmin.create({ data: { userId: a.id } });
+    return a;
+  };
+
+  it('both parties write and read one thread, in order; another job is notFound', async () => {
+    await postMessage(P.cli, P.j.id, 'client', 'Is Monday 9am ok?');
+    advanceClock(60_000);
+    await postMessage(P.pro, P.j.id, 'provider', 'Yes, see you then.');
+    const both = [['client', 'Is Monday 9am ok?'], ['provider', 'Yes, see you then.']];
+    expect(await thread(P.cli)).toEqual(both);
+    expect(await thread(P.pro)).toEqual(both);
+
+    const q = await makeOrg('q');
+    const other = await db.user.create({ data: { email: 'd@example.test' } });
+    const ql = await db.listing.create({ data: { ...LISTING, orgId: q.id, title: 'Q' } });
+    const qj = await db.job.create({ data: { ...JOB, orgId: q.id, listingId: ql.id, clientId: other.id } });
+    expect(await postMessage(P.pro, qj.id, 'provider', 'x').catch(outcome)).toBe('notFound');
+    expect(await postMessage(P.cli, qj.id, 'client', 'x').catch(outcome)).toBe('notFound');
+    expect(await db.message.count()).toBe(2);
+  });
+
+  it('the thread is append-only', async () => {
+    await postMessage(P.cli, P.j.id, 'client', 'hi');
+    await expect(db.message.updateMany({ data: { body: 'edited' } })).rejects.toThrow(/append-only/);
+    await expect(db.message.deleteMany()).rejects.toThrow(/append-only/);
+  });
+
+  it('an admin reads it only while the job is disputed, and each read is audited', async () => {
+    const a = await admin();
+    await postMessage(P.cli, P.j.id, 'client', 'hi');
+    expect(await adminReadThread(P.j.id, a.id).catch(outcome)).toBe('notFound'); // requested
+    await run('accept', 'start');
+    await transition(P.cli, P.j.id, 'dispute', 'client', { statement: 'no show' });
+    expect((await adminReadThread(P.j.id, a.id)).messages.map((m) => m.body)).toEqual(['hi']);
+    await adminReadThread(P.j.id, a.id);
+    expect(await reads()).toEqual([1, 2].map(() => ({ actorUserId: a.id, orgId: P.p.id, targetId: P.j.id })));
+    await settleDispute(P.j.id, a.id, 0);
+    expect(await adminReadThread(P.j.id, a.id).catch(outcome)).toBe('notFound'); // closed again
+    expect(await reads()).toHaveLength(2);
+  });
+
+  it('the admin page: notFound for a party, and it audits only a real read', async () => {
+    const a = await admin();
+    await run('accept', 'start');
+    await transition(P.cli, P.j.id, 'dispute', 'client', { statement: 'no show' });
+    const page = (jobId: string) => AdminThread({ params: Promise.resolve({ jobId }) });
+    await signInAs(P.c.id);
+    expect(await page(P.j.id).catch(outcome)).toBe('notFound');
+    await signInAs(a.id, { mfa: true });
+    expect(await page('not-a-uuid').catch(outcome)).toBe('notFound');
+    await page(P.j.id);
+    expect(await reads()).toHaveLength(1);
   });
 });

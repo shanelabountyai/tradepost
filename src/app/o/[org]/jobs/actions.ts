@@ -6,6 +6,7 @@ import { orgAction, ref } from '@/core/authz/action';
 import { submitStatement, transition, type Transition } from '@/lib/jobs';
 import { submitReview } from '@/lib/reviews';
 import { providerDb } from '@/lib/tenancy';
+import { postMessage } from '@/lib/threads';
 
 // P0-3: a provider's moves on its own jobs. Release is not among them (TRANSITIONS: client or cron only).
 const move = (name: Transition) =>
@@ -45,3 +46,11 @@ export const reviewClient = orgAction(
     redirect(`/o/${ctx.slug}/jobs`);
   },
 );
+
+// P0-7: the job's thread with the client.
+const message = z.string().trim().min(1, 'Write a message.').max(4000);
+
+export const sendMessageAsProvider = orgAction(null, z.object({ id: ref('job'), body: message }), async (ctx, { id, body }) => {
+  await postMessage(providerDb(ctx).job, id, 'provider', body);
+  redirect(`/o/${ctx.slug}/jobs`);
+});

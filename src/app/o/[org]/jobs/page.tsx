@@ -1,10 +1,12 @@
 import { requireOrg } from '@/core/authz/guards';
 import { ActionForm } from '@/core/ui/action-form';
 import { AUTO_CONFIRM_MS, escrow } from '@/lib/jobs';
-import { DisputePanel, ReviewPanel } from '@/app/jobs/panels';
+import { DisputePanel, ReviewPanel, ThreadPanel } from '@/app/jobs/panels';
+import { Poll } from '@/app/jobs/poll';
 import { providerDb, reviewsVisibleTo } from '@/lib/tenancy';
+import { THREAD } from '@/lib/threads';
 import {
-  acceptJob, addStatementAsProvider, cancelJobAsProvider, completeJob, declineJob, disputeJobAsProvider, reviewClient, startJob,
+  acceptJob, addStatementAsProvider, cancelJobAsProvider, completeJob, declineJob, disputeJobAsProvider, reviewClient, sendMessageAsProvider, startJob,
 } from './actions';
 
 export const metadata = { title: 'Jobs' };
@@ -16,13 +18,14 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
   const ctx = await requireOrg((await params).org);
   const jobs = await providerDb(ctx).job.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { listing: { select: { title: true } }, client: { select: { email: true } }, ledger: true, ...reviewsVisibleTo('provider') },
+    include: { listing: { select: { title: true } }, client: { select: { email: true } }, ledger: true, messages: THREAD, ...reviewsVisibleTo('provider') },
   });
   const moves = { requested: [[acceptJob, 'Accept'], [declineJob, 'Decline']], accepted: [[startJob, 'Start'], [cancelJobAsProvider, 'Cancel and refund']], in_progress: [[completeJob, 'Mark complete']] } as const;
 
   return (
     <main>
       <h1>Jobs</h1>
+      <Poll />
       {!jobs.length && <p>No requests yet.</p>}
       {jobs.map((j) => {
         const e = escrow(j.ledger);
@@ -46,6 +49,7 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
             ))}
             <DisputePanel id={j.id} status={j.status} open={disputeJobAsProvider.bind(null, ctx.slug)} add={addStatementAsProvider.bind(null, ctx.slug)} />
             <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" review={reviewClient.bind(null, ctx.slug)} />
+            <ThreadPanel id={j.id} messages={j.messages} party="provider" send={sendMessageAsProvider.bind(null, ctx.slug)} />
           </section>
         );
       })}

@@ -132,3 +132,20 @@ Audit rows are written after the move, not in the same transaction. P0-6's froze
 **Known ceilings:** there is no evidence upload yet. Dispute outcomes reach the parties through the ledger lines on their
 job pages. There is no dedicated "outcome" text. The first-rating `upsert` for a provider can hit P2002 if two of its jobs
 publish their first reviews at the same instant. That is rare, and a retry fixes it. Admins are granted by SQL, and the demo seed will add one.
+
+## D-006 — P0-7 message threads (2026-09-26)
+
+**Chose:**
+- **`Message(jobId, by: client|provider, body, createdAt)`** is append-only (a DB trigger, like the ledger), because a
+  thread can be dispute evidence. A CHECK keeps the body non-empty. Writes go through `postMessage` (`src/lib/threads.ts`)
+  as a nested create on the party's own scoped job, so a foreign job is notFound. Parties read the thread as
+  `include: { messages: THREAD }` on their scoped job. `message` joins the tenancy lint's models. It is not a flagged
+  relation, because unlike reviews, both parties may read all of it.
+- **Admin read:** `adminReadThread` runs in `inProviderTx`. The thread is found only while the job is `disputed`, and
+  any other status, including after resolution, is notFound. The `thread.adminRead` audit row commits in the same
+  transaction as the read. It has its own page (`/admin/disputes/[jobId]/thread`), so opening the disputes list does not
+  log a read of every thread. Mutation-checked: dropping the `disputed` filter turns the test red.
+- **Polling:** `Poll` calls `router.refresh()` every 10s while the tab is visible, on both job pages. No sockets (a PRD non-goal).
+
+**Known ceilings:** there is no per-user rate limit on sending, which the foundation's `rate-limit.ts` can add if spam
+shows up. Messages are allowed in every job status. Each admin page render counts as one audited read, including a reload.

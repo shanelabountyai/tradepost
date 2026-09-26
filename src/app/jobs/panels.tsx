@@ -58,3 +58,24 @@ export function ReviewPanel({ id, status, closedAt, visible, party, review }: {
     </div>
   );
 }
+
+type Message = { id: string; by: Party; body: string; createdAt: Date };
+const at = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');
+
+/** P0-7: the job's thread with the other party, and the form to add to it. Open while there is anything to read. */
+export function ThreadPanel({ id, messages, party, send }: { id: string; messages: Message[]; party: Party; send: Act }) {
+  return (
+    <details open={messages.length > 0}>
+      <summary>Messages ({messages.length})</summary>
+      {messages.map((m) => (
+        <p key={m.id}><strong>{m.by === party ? 'You' : m.by === 'client' ? 'Client' : 'Pro'}</strong> · {at(m.createdAt)} UTC<br />{m.body}</p>
+      ))}
+      <ActionForm action={send}>
+        <input type="hidden" name="id" value={id} />
+        <label>Message <textarea name="body" required maxLength={4000} /></label>{' '}
+        <button type="submit">Send</button>
+        <p>If this job is disputed, Tradepost staff can read this thread.</p>
+      </ActionForm>
+    </details>
+  );
+}

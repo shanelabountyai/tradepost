@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ActionForm } from '@/core/ui/action-form';
 import { requirePlatformAdmin } from '@/lib/admin';
 import { openDisputes } from '@/lib/tenancy';
@@ -23,6 +24,7 @@ export default async function Disputes() {
           <p>{j.dispute?.clientStatement ?? 'None yet.'}</p>
           <h3>Provider statement</h3>
           <p>{j.dispute?.providerStatement ?? 'None yet.'}</p>
+          <p><Link href={`/admin/disputes/${j.id}/thread`}>Read the message thread</Link> (each read is audit-logged)</p>
           {[['Full refund to the client', $(j.amountCents)], ['Full release to the provider', '0']].map(([label, refund]) => (
             <ActionForm key={label} action={resolveDispute}>
               <input type="hidden" name="jobId" value={j.id} />

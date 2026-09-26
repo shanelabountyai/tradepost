@@ -9,6 +9,7 @@ import { Refused } from '@/core/errors';
 import { submitStatement, transition, type Transition } from '@/lib/jobs';
 import { submitReview } from '@/lib/reviews';
 import { weekday } from '@/lib/search';
+import { postMessage } from '@/lib/threads';
 import { bookableListing, clientDb } from '@/lib/tenancy';
 
 // P0-3: a client's side of a job. Every move goes through clientDb, so another client's job is notFound.
@@ -46,6 +47,14 @@ export const reviewPro = userAction(
     redirect('/jobs');
   },
 );
+
+// P0-7: the job's thread with the pro.
+const message = z.string().trim().min(1, 'Write a message.').max(4000);
+
+export const sendMessage = userAction(z.object({ id: ref('job'), body: message }), async (s, { id, body }) => {
+  await postMessage(clientDb(s).job, id, 'client', body);
+  redirect('/jobs');
+});
 
 // Not ref('listing'): a listing id is public (it came from /search), and booking another provider's
 // listing is the point, so the harness's "another org's id is refused" (INV-02) does not apply to it.

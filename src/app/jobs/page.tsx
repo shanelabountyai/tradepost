@@ -3,8 +3,10 @@ import { requireUser } from '@/core/auth/session';
 import { ActionForm } from '@/core/ui/action-form';
 import { AUTO_CONFIRM_MS, escrow } from '@/lib/jobs';
 import { clientDb, reviewsVisibleTo } from '@/lib/tenancy';
-import { addStatement, cancelJob, confirmJob, disputeJob, reviewPro, withdrawJob } from './actions';
-import { DisputePanel, ReviewPanel } from './panels';
+import { THREAD } from '@/lib/threads';
+import { addStatement, cancelJob, confirmJob, disputeJob, reviewPro, sendMessage, withdrawJob } from './actions';
+import { DisputePanel, ReviewPanel, ThreadPanel } from './panels';
+import { Poll } from './poll';
 
 export const metadata = { title: 'Your bookings' };
 
@@ -15,7 +17,7 @@ export default async function Bookings() {
   const s = await requireUser();
   const jobs = await clientDb(s).job.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { listing: { select: { title: true } }, org: { select: { name: true } }, ledger: true, ...reviewsVisibleTo('client') },
+    include: { listing: { select: { title: true } }, org: { select: { name: true } }, ledger: true, messages: THREAD, ...reviewsVisibleTo('client') },
   });
   const moves = {
     requested: [[withdrawJob, 'Withdraw request']],
@@ -26,6 +28,7 @@ export default async function Bookings() {
   return (
     <main>
       <h1>Your bookings</h1>
+      <Poll />
       <p><Link href="/search">Find a pro</Link></p>
       {!jobs.length && <p>No bookings yet.</p>}
       {jobs.map((j) => {
@@ -50,6 +53,7 @@ export default async function Bookings() {
             ))}
             <DisputePanel id={j.id} status={j.status} open={disputeJob} add={addStatement} />
             <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="client" review={reviewPro} />
+            <ThreadPanel id={j.id} messages={j.messages} party="client" send={sendMessage} />
           </section>
         );
       })}

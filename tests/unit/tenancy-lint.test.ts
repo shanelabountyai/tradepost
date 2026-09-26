@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 // ledgerEntry: money rows are written only as part of a job transition (src/lib/jobs.ts), never directly.
 // review, dispute (P0-5/6): reviews are blind and statements admin-only, so outside src/lib they are not
 // even reachable as a nested relation of a scoped job; pages spread reviewsVisibleTo() instead.
-const MODELS = ['listing', 'job', 'ledgerEntry', 'review', 'dispute'];
+// message (P0-7): a party reads its thread as a relation of its own scoped job; an admin only via adminReadThread.
+const MODELS = ['listing', 'job', 'ledgerEntry', 'review', 'dispute', 'message'];
 const RELATIONS = /\b(reviews|dispute)\s*:/;
 const LAYER = 'src/lib/tenancy.ts';
 const ROOT = path.resolve(import.meta.dirname, '../..');
@@ -23,6 +24,7 @@ describe('tenancy lint', () => {
   it('flags raw access and passes scoped access (negative control)', () => {
     expect(violations('await db.job.findMany()')).toHaveLength(1);
     expect(violations('tx . listing.create({})')).toHaveLength(1);
+    expect(violations('db.message.findMany({ where: { jobId } })')).toHaveLength(1);
     expect(violations('db.$queryRaw`SELECT * FROM "Job"`')).toHaveLength(1);
     expect(violations('providerDb(ctx).job.findMany(); clientDb(s).job.findFirst()')).toHaveLength(0);
     expect(violations('include: { reviews: true, ledger: true }', true)).toHaveLength(1);
