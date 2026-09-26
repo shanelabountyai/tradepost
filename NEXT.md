@@ -9,7 +9,7 @@ section and in `audit/<repo>.md` here.
 **2026-09-26: Opus K4 pass done** (`audit/K4-SWEEP-2026-09-26.md`, scorecard v7). Rental K4 ✗ (3 HIGH, confirmed in source), clinic K4 ✗ (1 HIGH),
 alongside ✔, reservations N/A. Rental's Re-check processed: 10/14, not the 14/14 its own NEXT claims (K1, K6, K11 still ✗).
 Storage's Re-check stays queued in the artifact db until its SEC-01/02 edits are committed (they were uncommitted in flight at the time).
-Carried notes moved to `BACKLOG.md` (F-01, F-02). New queue items 9–10 below; each runs in its own folder.
+Carried notes moved to `BACKLOG.md` (F-01, F-02). Items 9–10 were fixed the same day (scorecard v8: rental 11/14, clinic 10/14).
 
 ## Queue (in order)
 
@@ -55,9 +55,11 @@ Carried notes moved to `BACKLOG.md` (F-01, F-02). New queue items 9–10 below; 
    - The harness takes ~2.5s on an idle machine and ~80s under a sibling project's sweep (load 45). That is CPU contention, not a hang.
 8. **talk4me: SEC-01 HIGH** (deferred here from item 4 on 2026-09-23). Cap `api/tts.ts` at about 500 chars, allowlist voice ids,
    add a Vercel Firewall rule. Model: Sonnet. After it is fixed, make the `talk4me` repo public.
-9. **rental business: K4-R1/R2/R3 HIGH** plus the MED secondary ids (`audit/K4-SWEEP-2026-09-26.md`). File them as SEC-nn in its backlog first.
-   Model: Opus (permissions). R3 is the big one: pass the guarding permission to `currentScope` at ~50 read sites. Also K1/K6/K11 gaps if wanted.
-10. **clinic: K4-C1 HIGH** plus the MED appointment/worklist scoping. Model: Opus (permissions).
+9. ~~**rental business: K4-R1/R2/R3 HIGH**~~ **Fixed 2026-09-26** (`6d75d45`, SEC-09–15, CI green). Open in that repo: SEC-16 (unrouted inbox, a design
+   question for Shane), the K4 LOWs, and K1/K6/K11 (tenant sign-out not server-side, same-origin referrer + no no-store on token pages, env schema covers 6 vars).
+10. ~~**clinic: K4-C1 HIGH**~~ **Fixed 2026-09-26** (`8c060a5`, SEC-07–11). Also fixed: clinic CI had been red at `npm ci` since SEC-06 (`b72b1f3`, 09-23) —
+   `a4d11ba` — which hid a date-rotted e2e spec, fixed in `62d7f1c`; CI green. Open in that repo: whether a group leader may write notes for attendees
+   they don't treat (Shane), and two LOWs (forms for any client; not-found vs forbidden oracle).
 
 **Shane-only, no code (still to do):**
 - Revoke the Vercel token leaked in event-toolkit history (`b8310aa`, `.claude/settings.json`). This blocks making the repo public.
