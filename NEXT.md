@@ -1,12 +1,13 @@
 # NEXT
 
-## ▶ Next session here: foundation fixes FR-01..11 → release v1.1.0 (Opus)
+## ▶ Next session here: foundation FR-06..08 harness coverage → then FR-09..11 tooling → release v1.1.0 (Opus)
 
 **Decided 2026-09-26 (Shane): queue all of it for a fresh session; nothing was changed in code.** Findings, confirmed in source:
 `audit/FOUNDATION-REVIEW-2026-09-26.md` (no HIGH, 11 MED, 8 LOW). Order:
 1. ~~**FR-01 first**~~ **Done 2026-09-27, tagged `v1.0.2`** (lease claim, send outside tx, 15s fetch timeout; 3 new tests, 3 mutations red, 125 pass). Was: outbox sends inside a 5s interactive tx; a slow provider → delivered, not recorded, re-sent every cron run
    and blocks the queue. Callboard's cron is `*/5`, so this is the live risk. Worth its own patch tag (v1.0.2) if the rest runs long.
-2. FR-02 pending-MFA TTL + daily cap, FR-03 invite rate limit, FR-04/05 billing (subscription id binding; `deleteOrg` cancels).
+2. ~~FR-02..05~~ **Done 2026-09-27, tagged `v1.0.3`** (`8e4dd35`; 18 mutations red, 133 pass + 10/10 e2e, check-modules green). Clone notes added to each clone's NEXT.md (uncommitted there, beside the v1.0.2 note).
+   Choices: pending-MFA TTL 10 min; wrong-code cap 20/user/UTC day; invite caps 50/sender, 100/org, 5/recipient per day; the cancel hook lives in clone-owned `src/app/org-hooks.ts` (core may not import modules); concurrent pending checkouts still make two subs (ponytail note, logged).
 3. FR-06/07/08 harness coverage (page/layout/route guard test, glob all of `src/` + ban inline `'use server'`, untagged id fields).
 4. FR-09/10/11 tooling (diff-scoped patch excuse, nav-link marker, port-table + double-run guard in `new-project`).
 5. LOWs as time allows. Each fix: test red without it (mutation-check), CHANGELOG, tag, then add each clone's upgrade to its own NEXT.md.
