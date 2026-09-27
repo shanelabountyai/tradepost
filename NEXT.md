@@ -1,14 +1,12 @@
 # NEXT
 
-Queue, in order: **1. feedback run (D-008)**, then **2. Claude Design pass** on `docs/DESIGN_BRIEF.md` (fold in the
-personas' UX findings first), then **3. implement the design** (the brief's last section). One item per session.
+Queue, in order: **1. feedback run (D-008): done**, see `docs/FEEDBACK.md`. Next is **2. Claude Design pass** on
+`docs/DESIGN_BRIEF.md`, then **3. implement the design**. One item per session.
 
-**Item: post-closure feedback run (D-008).** Tradepost is closed (all four deliverables are listed in `docs/RELEASE_NOTES.md`
-and the git log). Shane approved a five-agent feedback run on 2026-09-26: three personas on Sonnet, one red team on
-Opus, and one gap analysis on Sonnet. It is run as a workflow, in sequence, with findings written to `docs/FEEDBACK.md`.
-Read D-008 in `docs/decisions.md`.
+**Before item 2:** fold the personas' UX findings into the brief first. F-03 (nav and client landing), F-06 (fee
+disclosure), F-12 (homepage branding), F-13 (dispute cards) and F-19 (closed-thread signal) are design-shaped.
 
-Before starting: kill any Tradepost playwright/server (`pkill -9 -f "$PWD.*playwright"`, `lsof -ti :4200`), run
-`swapcheck`, and confirm local `tradepost_test`/dev DB row counts after `npm run seed:demo`.
+The code defects F-01, F-02, F-04 and F-05 are not design work. Whether they get their own fix item, and where it goes
+in the queue, is still to be decided.
 
-Model: Opus for the orchestrating session. The red-team agent must stay on Opus.
+`tradepost_test` holds mutations from the run. Reset it before the next demo or sweep (see FEEDBACK.md → Housekeeping).

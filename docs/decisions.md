@@ -188,3 +188,15 @@ Five agents run **in sequence**, never overlapping, because only one server and 
 
 **Output:** `docs/FEEDBACK.md` with one findings list ranked by severity. Nothing is fixed in the same pass; fixes are
 separate items.
+
+**Outcome (2026-09-26):** 5/5 agents completed and returned 24 findings, ranked in `docs/FEEDBACK.md`. All four hard
+rules held under the red team. Six shipped-scope defects were found:
+
+- F-01: `member` has owner authority over jobs and listings.
+- F-02: duplicate bookings.
+- F-03: a real client sign-in lands on the template's org onboarding page, and there is no nav.
+- F-04: permission-gated settings pages return 500.
+- F-05: a resolved dispute is unauditable in the UI.
+- F-06: the platform fee is not shown to the client.
+
+F-07 (no event notifications) is the one launch gap the PRD never cut.
