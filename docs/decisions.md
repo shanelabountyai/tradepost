@@ -228,3 +228,10 @@ The design-shaped findings (F-03, F-06, F-12, F-13 and F-19) go into the design 
 - **F-05.** An admin can read a job's case file (thread, both statements, resolution) for any job with a dispute,
   open or resolved, and each read is audit-logged as before. `/admin/disputes` lists resolved disputes, without
   statements, and links to the case page. This relaxes P0-7's "only while disputed" to "only once disputed".
+
+## D-010 — the design is made in Claude Design, not in this repo (2026-09-27)
+
+**Chose:** Shane pastes `docs/DESIGN_BRIEF.md` into Claude Design and brings back the output, and a session here reviews
+it against the brief before any CSS is written. Picked over building it here as a Design artifact (a weaker design, and
+the mockups fill the session's context) and over going straight to `globals.css` (no chance to compare before code).
+The brief now carries F-03, F-06, F-12, F-13, F-19 and the two D-009 states (commit `2d8e83a`).
