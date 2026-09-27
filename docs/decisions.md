@@ -200,3 +200,14 @@ rules held under the red team. Six shipped-scope defects were found:
 - F-06: the platform fee is not shown to the client.
 
 F-07 (no event notifications) is the one launch gap the PRD never cut.
+
+## D-009 — fix the shipped-scope defects before the design pass (2026-09-26)
+
+**Chose:** F-01, F-02, F-04 and F-05 from `docs/FEEDBACK.md` become one fix item, queued ahead of the Claude Design pass.
+Shane picked this over fixing after the design, folding the fixes into the design implementation, or not fixing. The
+reasons:
+
+- F-01 changes who can move money, and F-04 needs a foundation patch. Neither belongs in a UI diff.
+- The design pass should start from an app whose behaviour is correct.
+
+The design-shaped findings (F-03, F-06, F-12, F-13 and F-19) go into the design brief instead.
