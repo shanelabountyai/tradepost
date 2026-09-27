@@ -69,9 +69,13 @@ export const requestJob = userAction(z.object({ listingId: z.string().regex(UUID
   }
   if (i.date < now().toISOString().slice(0, 10)) throw new Refused('Pick today or a later date.');
   if (!l.days.includes(weekday(i.date))) throw new Refused('This pro does not work that day.');
-  const job = await clientDb(s).job.create({
-    data: { orgId: l.orgId, listingId: l.id, clientId: s.userId, date: new Date(i.date), amountCents: l.rateCents },
-  });
+  const job = await clientDb(s)
+    .job.create({ data: { orgId: l.orgId, listingId: l.id, clientId: s.userId, date: new Date(i.date), amountCents: l.rateCents } })
+    .catch((e) => {
+      // F-02: the partial unique index "Job_one_active_per_date" (a stale tab or a double submit)
+      if (e?.code === 'P2002') throw new Refused('You already requested this pro for that date. See it in Your jobs.');
+      throw e;
+    });
   await audit({ orgId: l.orgId, userId: s.userId }, 'job.request', { targetType: 'job', targetId: job.id });
   redirect('/jobs');
 });

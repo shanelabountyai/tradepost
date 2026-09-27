@@ -30,7 +30,8 @@ There are no passwords. `/demo` signs in any seeded user with one click, MFA alr
 | `owner@fernway.demo.test` | owner of Fernway Cleaning | the other tenant, for the isolation stop |
 | `ops@tradepost.demo.test` | platform admin | resolve disputes |
 
-`admin@` and `member@brightline.demo.test` exist for role checks. Real logins use a magic link plus TOTP; the
+`admin@` and `member@brightline.demo.test` exist for role checks. The member sees Brightline's jobs and can message
+the client, but has no accept, cancel, dispute, review or listing controls (D-009). Real logins use a magic link plus TOTP; the
 demo TOTP secret is `JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP` (public and fixed, and the seed refuses a cloud database).
 
 ## Screens
@@ -73,6 +74,8 @@ Click **Read the message thread** (the read is audit-logged), then enter a split
 
 Say: "Frozen funds move only by an admin resolution, and that resolution is audit-logged."
 If the queue says *No open disputes*, that is the seeded one already resolved. Run stop 4 first.
+Under **Resolved disputes**, open any case: the statements, the thread and the refund are still there, and that read
+is audit-logged too.
 
 ### 6. Reviews are blind (client, then provider)
 On a closed job, submit the client review. The provider's page shows nothing of it until they submit theirs or

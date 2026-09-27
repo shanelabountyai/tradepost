@@ -1,6 +1,7 @@
 import { requireOrg } from '@/core/authz/guards';
 import { ActionForm } from '@/core/ui/action-form';
 import { ServiceCategory } from '@/generated/prisma/enums';
+import { canManage } from '@/lib/roles';
 import { providerDb } from '@/lib/tenancy';
 import { addListing, deleteListing, updateListing } from './actions';
 
@@ -40,6 +41,7 @@ function Fields({ v }: { v?: Values }) {
 export default async function Listings({ params }: { params: Promise<{ org: string }> }) {
   const ctx = await requireOrg((await params).org);
   const listings = await providerDb(ctx).listing.findMany({ orderBy: { createdAt: 'asc' } });
+  const manage = canManage(ctx); // D-009: a member reads listings only
   const bind = <A extends unknown[], R>(fn: (slug: string, ...a: A) => R) => fn.bind(null, ctx.slug);
 
   return (
@@ -51,26 +53,30 @@ export default async function Listings({ params }: { params: Promise<{ org: stri
           <p>
             {l.category} · ${(l.rateCents / 100).toFixed(2)} · {l.radiusMiles} mi · {l.days.map((d) => DAYS[d]).join(' ')}
           </p>
-          <details>
-            <summary>Edit</summary>
-            <ActionForm action={bind(updateListing)}>
+          {manage && <>
+            <details>
+              <summary>Edit</summary>
+              <ActionForm action={bind(updateListing)}>
+                <input type="hidden" name="id" value={l.id} />
+                <Fields v={l} />
+                <button type="submit">Save</button>
+              </ActionForm>
+            </details>
+            <ActionForm action={bind(deleteListing)}>
               <input type="hidden" name="id" value={l.id} />
-              <Fields v={l} />
-              <button type="submit">Save</button>
+              <button type="submit">Delete</button>
             </ActionForm>
-          </details>
-          <ActionForm action={bind(deleteListing)}>
-            <input type="hidden" name="id" value={l.id} />
-            <button type="submit">Delete</button>
-          </ActionForm>
+          </>}
         </section>
       ))}
 
-      <h2>New listing</h2>
-      <ActionForm action={bind(addListing)}>
-        <Fields />
-        <button type="submit">Add listing</button>
-      </ActionForm>
+      {manage && <>
+        <h2>New listing</h2>
+        <ActionForm action={bind(addListing)}>
+          <Fields />
+          <button type="submit">Add listing</button>
+        </ActionForm>
+      </>}
     </main>
   );
 }

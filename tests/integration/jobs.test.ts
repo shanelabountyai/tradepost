@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resolveDispute } from '@/app/admin/disputes/actions';
 import * as providerActions from '@/app/o/[org]/jobs/actions';
+import { addListing } from '@/app/o/[org]/listings/actions';
 import { requestJob, reviewPro } from '@/app/jobs/actions';
+import { requireOrg } from '@/core/authz/guards';
 import { advanceClock, now } from '@/core/clock';
 import { db } from '@/core/db';
 import { Refused } from '@/core/errors';
 import { AUTO_CONFIRM_MS, autoConfirmDue, escrow, ledgerRows, settleDispute, submitStatement, transition, TRANSITIONS } from '@/lib/jobs';
 import { publishDueReviews, REVIEW_WINDOW_MS, submitReview } from '@/lib/reviews';
-import { clientDb, openDisputes, providerDb, publishReviews, reviewsVisibleTo } from '@/lib/tenancy';
+import { clientDb, openDisputes, providerDb, publishReviews, resolvedDisputes, reviewsVisibleTo } from '@/lib/tenancy';
 import { adminReadThread, postMessage, THREAD } from '@/lib/threads';
 import AdminThread from '@/app/admin/disputes/[jobId]/thread/page';
 import { JOB, LISTING } from '../fixtures/app';
@@ -15,11 +17,11 @@ import { resetAuthTables, signInAs } from '../helpers/auth';
 import { NavSignal } from '../helpers/next';
 import { actAs, addMember, makeOrg } from '../helpers/org';
 
-// P0-3/4/5/6. Provider P (member u), client C, and one job J at $85 in `requested`.
+// P0-3/4/5/6. Provider P (owner u), client C, and one job J at $85 in `requested`.
 let P: Awaited<ReturnType<typeof setup>>;
 async function setup() {
   const p = await makeOrg('p');
-  const u = await addMember(p.id, 'member', 'u@example.test');
+  const u = await addMember(p.id, 'owner', 'u@example.test');
   const c = await db.user.create({ data: { email: 'c@example.test' } });
   const l = await db.listing.create({ data: { ...LISTING, orgId: p.id, title: 'P plumbing' } });
   const j = await db.job.create({ data: { ...JOB, orgId: p.id, listingId: l.id, clientId: c.id } });
@@ -53,6 +55,8 @@ const run = async (...names: (keyof typeof TRANSITIONS)[]) => {
 };
 const ledger = async () => (await db.ledgerEntry.findMany({ where: { jobId: P.j.id }, orderBy: { kind: 'asc' } })).map((r) => [r.kind, r.amountCents]);
 const job = () => db.job.findUniqueOrThrow({ where: { id: P.j.id } });
+// A second job for the same client and listing needs another date while J is live (F-02).
+const OTHER_DAY = new Date('2026-10-06');
 const outcome = (e: unknown) => (e instanceof NavSignal ? e.kind : e instanceof Refused ? e.message : e);
 
 describe('ledger rows (pure)', () => {
@@ -83,7 +87,7 @@ describe('lifecycle', () => {
   it('decline and withdraw hold nothing', async () => {
     await run('decline');
     expect(await ledger()).toEqual([]);
-    const j2 = await db.job.create({ data: { ...JOB, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } });
+    const j2 = await db.job.create({ data: { ...JOB, date: OTHER_DAY, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } });
     await transition(P.cli, j2.id, 'withdraw', 'client');
     expect((await db.job.findUniqueOrThrow({ where: { id: j2.id } })).status).toBe('cancelled');
   });
@@ -127,6 +131,19 @@ describe('lifecycle', () => {
     expect((await job()).status).toBe('requested');
   });
 
+  it('D-009 (F-01, F-04): a member can message but not move money or listings, and a missing permission is notFound', async () => {
+    const m = await addMember(P.p.id, 'member', 'm@example.test');
+    await actAs(m.id, 'p');
+    expect(await providerActions.acceptJob('p', { id: P.j.id }).catch(outcome)).toBe('notFound');
+    expect(await providerActions.declineJob('p', { id: P.j.id }).catch(outcome)).toBe('notFound');
+    expect(await addListing('p', { ...LISTING, title: 'x', rate: '50', d1: 'on' }).catch(outcome)).toBe('notFound');
+    expect(await requireOrg('p', 'billing.manage').catch(outcome)).toBe('notFound'); // was a 500 (AuthzError)
+    expect(await providerActions.sendMessageAsProvider('p', { id: P.j.id, body: 'on my way' }).catch(outcome)).toBe('redirect');
+    expect(await job()).toMatchObject({ status: 'requested' });
+    expect(await ledger()).toEqual([]);
+    expect(await db.listing.count()).toBe(1);
+  });
+
   it('the ledger is append-only', async () => {
     await run('accept');
     await expect(db.ledgerEntry.updateMany({ data: { amountCents: 1 } })).rejects.toThrow(/append-only/);
@@ -138,7 +155,7 @@ describe('lifecycle', () => {
 describe('auto-confirm (cron, injected clock)', () => {
   it('releases 72h after completion, not before, and skips a job the client already confirmed', async () => {
     await run('accept', 'start', 'complete');
-    const j2 = await db.job.create({ data: { ...JOB, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } });
+    const j2 = await db.job.create({ data: { ...JOB, date: OTHER_DAY, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } });
     for (const n of ['accept', 'start', 'complete', 'confirm'] as const) await transition(n === 'confirm' ? P.cli : P.pro, j2.id, n, n === 'confirm' ? 'client' : 'provider');
 
     advanceClock(AUTO_CONFIRM_MS - 60_000);
@@ -169,6 +186,17 @@ describe('requestJob', () => {
     await signInAs(P.u.id, { mfa: true });
     expect(await requestJob(at(today))).toEqual({ error: 'You cannot book your own business.' });
     expect(await db.job.count()).toBe(1);
+  });
+
+  it('F-02: one live job per client, listing and date; a declined one frees the date', async () => {
+    await signInAs(P.c.id);
+    const date = JOB.date.toISOString().slice(0, 10); // J's date, still `requested`
+    const dup = { error: 'You already requested this pro for that date. See it in Your jobs.' };
+    expect(await requestJob(at(date))).toEqual(dup);
+    await run('decline');
+    expect(await requestJob(at(date)).catch(outcome)).toBe('redirect');
+    expect(await requestJob(at(date))).toEqual(dup);
+    expect(await db.job.count()).toBe(2);
   });
 });
 
@@ -234,7 +262,7 @@ describe('disputes (P0-6)', () => {
     await submitStatement(P.pro, P.j.id, 'provider', 'provider says');
     expect((await openDisputes())[0]!.dispute).toMatchObject({ openedBy: 'client', clientStatement: 'client says', providerStatement: 'provider says' });
     for (const side of [P.cli, P.pro]) expect(await side.findFirst({ where: { id: P.j.id } })).not.toHaveProperty('dispute');
-    await expect(submitStatement(P.cli, (await db.job.create({ data: { ...JOB, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } })).id, 'client', 'x'))
+    await expect(submitStatement(P.cli, (await db.job.create({ data: { ...JOB, date: OTHER_DAY, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } })).id, 'client', 'x'))
       .rejects.toThrow(/no open dispute/);
   });
 
@@ -300,7 +328,7 @@ describe('blind reviews (P0-5)', () => {
   it('the aggregate matches a hand tally', async () => {
     const stars = [5, 4, 2, 5];
     for (const n of stars) {
-      const j = await db.job.create({ data: { ...JOB, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } });
+      const j = await db.job.create({ data: { ...JOB, date: OTHER_DAY, orgId: P.p.id, listingId: P.l.id, clientId: P.c.id } });
       for (const t of ['accept', 'start', 'complete', 'confirm'] as const) await transition(t === 'confirm' ? P.cli : P.pro, j.id, t, t === 'confirm' ? 'client' : 'provider');
       await submitReview(P.cli, j.id, 'client', n, '');
       await submitReview(P.pro, j.id, 'provider', 1, ''); // the pro's review of the client never counts
@@ -341,7 +369,7 @@ describe('threads (P0-7)', () => {
     await expect(db.message.deleteMany()).rejects.toThrow(/append-only/);
   });
 
-  it('an admin reads it only while the job is disputed, and each read is audited', async () => {
+  it('an admin reads it only once the job has a dispute, open or resolved, and each read is audited', async () => {
     const a = await admin();
     await postMessage(P.cli, P.j.id, 'client', 'hi');
     expect(await adminReadThread(P.j.id, a.id).catch(outcome)).toBe('notFound'); // requested
@@ -351,8 +379,11 @@ describe('threads (P0-7)', () => {
     await adminReadThread(P.j.id, a.id);
     expect(await reads()).toEqual([1, 2].map(() => ({ actorUserId: a.id, orgId: P.p.id, targetId: P.j.id })));
     await settleDispute(P.j.id, a.id, 0);
-    expect(await adminReadThread(P.j.id, a.id).catch(outcome)).toBe('notFound'); // closed again
-    expect(await reads()).toHaveLength(2);
+    const done = await adminReadThread(P.j.id, a.id); // F-05: a resolved case stays readable, and audited
+    expect(done.dispute).toMatchObject({ clientStatement: 'no show', refundCents: 0, resolvedAt: expect.any(Date) });
+    expect(done.messages.map((m) => m.body)).toEqual(['hi']);
+    expect(await reads()).toHaveLength(3);
+    expect((await resolvedDisputes()).map((r) => [r.jobId, r.refundCents])).toEqual([[P.j.id, 0]]);
   });
 
   it('the admin page: notFound for a party, and it audits only a real read', async () => {

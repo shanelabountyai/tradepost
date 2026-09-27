@@ -211,3 +211,20 @@ reasons:
 - The design pass should start from an app whose behaviour is correct.
 
 The design-shaped findings (F-03, F-06, F-12, F-13 and F-19) go into the design brief instead.
+
+**How each was fixed (2026-09-26):**
+
+- **F-01.** Provider job moves, disputes, statements, reviews of the client, and every listing action are owner/admin
+  only, through `manageAction` in `src/lib/roles.ts`. A `member` keeps reading jobs and **keeps messaging**: the member is
+  the one on site, and a message moves no money. The rule lives in the clone, not in the template's permission table,
+  because jobs and listings are this app's concepts. A member's attempt reads as notFound, the same as F-04.
+- **F-02.** A partial unique index on `Job (clientId, listingId, date)` over the live statuses (requested, accepted,
+  in progress, completed, disputed). Declined, cancelled and closed jobs free the date. `requestJob` turns the
+  violation into "You already requested this pro for that date." The "already requested" badge on `/search` goes to
+  the design pass.
+- **F-04.** `requireOrg(slug, perm)` calls `notFound()` for a missing permission instead of throwing `AuthzError`.
+  It is one line in a template-owned file, so it is listed in `FOUNDATION_PATCHES.md` and marked for upstream: the bug is
+  the template's. Server actions get a 404 instead of a 500 too.
+- **F-05.** An admin can read a job's case file (thread, both statements, resolution) for any job with a dispute,
+  open or resolved, and each read is audit-logged as before. `/admin/disputes` lists resolved disputes, without
+  statements, and links to the case page. This relaxes P0-7's "only while disputed" to "only once disputed".

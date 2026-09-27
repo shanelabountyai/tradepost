@@ -3,6 +3,7 @@ import { ActionForm } from '@/core/ui/action-form';
 import { AUTO_CONFIRM_MS, escrow } from '@/lib/jobs';
 import { DisputePanel, ReviewPanel, ThreadPanel } from '@/app/jobs/panels';
 import { Poll } from '@/app/jobs/poll';
+import { canManage } from '@/lib/roles';
 import { providerDb, reviewsVisibleTo } from '@/lib/tenancy';
 import { THREAD } from '@/lib/threads';
 import {
@@ -20,6 +21,7 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
     orderBy: { createdAt: 'desc' },
     include: { listing: { select: { title: true } }, client: { select: { email: true } }, ledger: true, messages: THREAD, ...reviewsVisibleTo('provider') },
   });
+  const manage = canManage(ctx); // D-009: a member sees jobs and messages, nothing else
   const moves = { requested: [[acceptJob, 'Accept'], [declineJob, 'Decline']], accepted: [[startJob, 'Start'], [cancelJobAsProvider, 'Cancel and refund']], in_progress: [[completeJob, 'Mark complete']] } as const;
 
   return (
@@ -41,14 +43,14 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
             {j.status === 'completed' && j.completedAt && (
               <p>Waiting for the client. Auto-confirms {new Date(j.completedAt.getTime() + AUTO_CONFIRM_MS).toISOString().slice(0, 16).replace('T', ' ')} UTC.</p>
             )}
-            {(moves[j.status as keyof typeof moves] ?? []).map(([action, label]) => (
+            {manage && (moves[j.status as keyof typeof moves] ?? []).map(([action, label]) => (
               <ActionForm key={label} action={action.bind(null, ctx.slug)}>
                 <input type="hidden" name="id" value={j.id} />
                 <button type="submit">{label}</button>
               </ActionForm>
             ))}
-            <DisputePanel id={j.id} status={j.status} open={disputeJobAsProvider.bind(null, ctx.slug)} add={addStatementAsProvider.bind(null, ctx.slug)} />
-            <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" review={reviewClient.bind(null, ctx.slug)} />
+            {manage && <DisputePanel id={j.id} status={j.status} open={disputeJobAsProvider.bind(null, ctx.slug)} add={addStatementAsProvider.bind(null, ctx.slug)} />}
+            {manage && <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" review={reviewClient.bind(null, ctx.slug)} />}
             <ThreadPanel id={j.id} messages={j.messages} party="provider" send={sendMessageAsProvider.bind(null, ctx.slug)} />
           </section>
         );

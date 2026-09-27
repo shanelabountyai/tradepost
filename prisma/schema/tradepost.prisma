@@ -65,6 +65,7 @@ model Job {
   @@index([orgId])
   @@index([clientId])
   @@index([status, completedAt])
+  // + partial unique (clientId, listingId, date) on live statuses: migration 20260926180000 (F-02)
 }
 
 enum JobStatus {
@@ -143,7 +144,7 @@ model PlatformAdmin {
 }
 
 // P0-7: the job's thread between client and provider. Written through the party's scoped job client
-// (src/lib/threads.ts); a platform admin reads it only while the job is disputed, and each read is
+// (src/lib/threads.ts); a platform admin reads it only once the job has a dispute (open or resolved), and each read is
 // audit-logged. Append-only (a DB trigger): a message can be dispute evidence.
 model Message {
   id        String   @id @default(uuid()) @db.Uuid

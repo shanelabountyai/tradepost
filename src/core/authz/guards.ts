@@ -17,7 +17,8 @@ export class AuthzError extends Error {
 /**
  * The first statement of every org page, action and route (spec §7b rule 1). Membership is read
  * from the database on every call, so a removal takes effect on the next request (INV-05).
- * Not a member → notFound ("not yours" ≡ "not found"); owner/admin without MFA → enrol (INV-22).
+ * Not a member, or missing `perm` → notFound ("not yours" ≡ "not found"); owner/admin without MFA → enrol (INV-22).
+ * Tradepost patch (F-04): `perm` used to throw AuthzError, which a page render turned into a 500.
  */
 export async function requireOrg(orgSlug: string, perm?: Permission): Promise<OrgCtx> {
   const session = await requireUser();
@@ -27,7 +28,7 @@ export async function requireOrg(orgSlug: string, perm?: Permission): Promise<Or
   if (!m) notFound();
   // requireUser already sent an enrolled user without mfaAt to /login/mfa; this catches the unenrolled.
   if (m.role !== 'member' && !(session.totpEnrolled && session.mfaAt)) redirect('/account/security?mfa=required');
-  if (perm && !can(m.role, perm)) throw new AuthzError(perm);
+  if (perm && !can(m.role, perm)) notFound();
   return { userId: session.userId, orgId: m.orgId, slug: orgSlug, role: m.role, session };
 }
 

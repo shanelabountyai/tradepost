@@ -2,13 +2,14 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { audit } from '@/core/audit';
-import { orgAction, ref } from '@/core/authz/action';
+import { ref } from '@/core/authz/action';
 import { notFoundOnP2025, type OrgCtx } from '@/core/authz/guards';
 import { Refused } from '@/core/errors';
 import { ServiceCategory } from '@/generated/prisma/enums';
+import { manageAction } from '@/lib/roles';
 import { providerDb } from '@/lib/tenancy';
 
-// P0-2: a provider's own listings. Every query goes through providerDb, so a foreign id is notFound.
+// P0-2: a provider's own listings, owner/admin only (D-009). Every query goes through providerDb, so a foreign id is notFound.
 const page = (ctx: OrgCtx) => `/o/${ctx.slug}/listings`;
 
 // FormData keeps only the last value of a repeated name, so each weekday is its own checkbox: d0 = Sunday.
@@ -34,19 +35,19 @@ const toData = ({ rate, ...i }: z.infer<typeof listing>) => ({
   days: [0, 1, 2, 3, 4, 5, 6].filter((d) => i[`d${d}` as Day]),
 });
 
-export const addListing = orgAction(null, listing, async (ctx, i) => {
+export const addListing = manageAction(listing, async (ctx, i) => {
   const l = await providerDb(ctx).listing.create({ data: { ...toData(i), orgId: ctx.orgId } });
   await audit(ctx, 'listing.created', { targetType: 'listing', targetId: l.id });
   redirect(page(ctx));
 });
 
-export const updateListing = orgAction(null, listing.and(z.object({ id: ref('listing') })), async (ctx, i) => {
+export const updateListing = manageAction(listing.and(z.object({ id: ref('listing') })), async (ctx, i) => {
   await providerDb(ctx).listing.update({ where: { id: i.id }, data: toData(i) }).catch(notFoundOnP2025);
   await audit(ctx, 'listing.updated', { targetType: 'listing', targetId: i.id });
   redirect(page(ctx));
 });
 
-export const deleteListing = orgAction(null, z.object({ id: ref('listing') }), async (ctx, { id }) => {
+export const deleteListing = manageAction(z.object({ id: ref('listing') }), async (ctx, { id }) => {
   await providerDb(ctx)
     .listing.delete({ where: { id } })
     .catch((e) => {

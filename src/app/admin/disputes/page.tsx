@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ActionForm } from '@/core/ui/action-form';
 import { requirePlatformAdmin } from '@/lib/admin';
-import { openDisputes } from '@/lib/tenancy';
+import { openDisputes, resolvedDisputes } from '@/lib/tenancy';
 import { resolveDispute } from './actions';
 
 export const metadata = { title: 'Disputes' };
@@ -11,7 +11,7 @@ const $ = (cents: number) => (cents / 100).toFixed(2);
 // P0-6 (D-005): platform admins only. Statements are shown here and nowhere else.
 export default async function Disputes() {
   await requirePlatformAdmin();
-  const jobs = await openDisputes();
+  const [jobs, resolved] = await Promise.all([openDisputes(), resolvedDisputes()]);
   return (
     <main>
       <h1>Open disputes</h1>
@@ -40,6 +40,17 @@ export default async function Disputes() {
           </ActionForm>
         </section>
       ))}
+      <h1>Resolved disputes</h1>
+      {!resolved.length && <p>None yet.</p>}
+      <ul>
+        {resolved.map((r) => (
+          <li key={r.jobId}>
+            <Link href={`/admin/disputes/${r.jobId}/thread`}>{r.job.listing.title} · {r.job.org.name} · {r.job.client.email} · {r.job.date.toISOString().slice(0, 10)}</Link>
+            {' '}· ${$(r.job.amountCents)}, ${$(r.refundCents ?? 0)} refunded · resolved {r.resolvedAt!.toISOString().slice(0, 10)}
+          </li>
+        ))}
+      </ul>
+      <p>Opening a resolved case shows its statements and thread, and is audit-logged.</p>
     </main>
   );
 }

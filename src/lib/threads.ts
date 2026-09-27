@@ -6,7 +6,8 @@ import { inProviderTx, type providerDb } from '@/lib/tenancy';
 
 // P0-7: one thread per job between its client and its provider, refreshed by polling. Both sides reach
 // it only through their own scoped job client, so a foreign job is notFound. A platform admin reads it
-// only while the job is disputed, and every such read is audit-logged in the same transaction.
+// only on a job that has a dispute, open or resolved (D-009, F-05), and every such read is audit-logged
+// in the same transaction.
 
 type Jobs = ReturnType<typeof providerDb>['job'];
 
@@ -20,12 +21,15 @@ export async function postMessage(jobs: Jobs, id: string, by: Party, body: strin
   });
 }
 
-/** Admin (P0-7): a disputed job's thread. Any other status is notFound, and a read that returns writes its audit row. Callers pass requirePlatformAdmin first. */
+/**
+ * Admin (P0-6/7): a disputed job's case file — thread, both statements and, once resolved, the outcome. A job
+ * that never had a dispute is notFound, and a read that returns writes its audit row. Callers pass requirePlatformAdmin first.
+ */
 export function adminReadThread(jobId: string, adminId: string) {
   return inProviderTx(jobId, async (jobs, tx, orgId) => {
     const job = await jobs.findFirst({
-      where: { id: jobId, status: 'disputed' },
-      select: { listing: { select: { title: true } }, messages: THREAD },
+      where: { id: jobId, dispute: { isNot: null } },
+      select: { amountCents: true, status: true, listing: { select: { title: true } }, org: { select: { name: true } }, client: { select: { email: true } }, dispute: true, messages: THREAD },
     });
     if (!job) notFound();
     await audit({ orgId, userId: adminId }, 'thread.adminRead', { targetType: 'job', targetId: jobId }, tx);

@@ -40,11 +40,11 @@ the PRD's nice-to-have list or DEMO.md dropped it on purpose.
 
 | # | Sev | Type | Finding | Source |
 |---|---|---|---|---|
-| F-01 | high | defect | A `member` has owner-level authority over money and inventory | provider, red team |
-| F-02 | high | defect | A client can book the same pro for the same date any number of times | client |
+| F-01 | high | defect, **fixed D-009** | A `member` has owner-level authority over money and inventory | provider, red team |
+| F-02 | high | defect, **fixed D-009** | A client can book the same pro for the same date any number of times | client |
 | F-03 | high | defect | A real client sign-in lands on the template's "Your orgs" page, and there is no nav | client |
-| F-04 | high | defect | Settings pages that need a permission return 500 instead of 404 | provider |
-| F-05 | high | defect | A resolved dispute can no longer be reviewed in the product | admin |
+| F-04 | high | defect, **fixed D-009** | Settings pages that need a permission return 500 instead of 404 | provider |
+| F-05 | high | defect, **fixed D-009** | A resolved dispute can no longer be reviewed in the product | admin |
 | F-06 | high | defect | The 10% platform fee is never shown to the client | client |
 | F-07 | critical | gap | No notifications on job, dispute or message events | gap analysis |
 | F-08 | high | gap | No quote or estimate flow; bookings are fixed-rate only | gap analysis |

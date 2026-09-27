@@ -42,7 +42,7 @@ describe('searchableListings', () => {
 describe('deleteListing', () => {
   it('refuses a listing that has jobs, and deletes one that has none', async () => {
     const p = await makeOrg('p');
-    const u = await addMember(p.id, 'member', 'u@example.test');
+    const u = await addMember(p.id, 'owner', 'u@example.test');
     const c = await db.user.create({ data: { email: 'c@example.test' } });
     const [busy, idle] = await Promise.all(['busy', 'idle'].map((title) => db.listing.create({ data: { ...LISTING, orgId: p.id, title } })));
     await db.job.create({ data: { ...JOB, orgId: p.id, listingId: busy!.id, clientId: c.id } });

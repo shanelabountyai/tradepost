@@ -109,6 +109,18 @@ export function openDisputes() {
   });
 }
 
+/** Admin (D-009, F-05): resolved disputes, newest first. No statements: those are read, audited, on the case page. */
+export function resolvedDisputes() {
+  return db.dispute.findMany({
+    where: { resolvedAt: { not: null } },
+    orderBy: { resolvedAt: 'desc' },
+    select: {
+      jobId: true, resolvedAt: true, refundCents: true,
+      job: { select: { date: true, amountCents: true, org: { select: { name: true } }, client: { select: { email: true } }, listing: { select: { title: true } } } },
+    },
+  });
+}
+
 /**
  * P0-5, the one include that reads reviews: a party sees its own review, and the other's only once
  * published. Spread it into a scoped job query: `include: { ...reviewsVisibleTo('client') }`.
