@@ -1,8 +1,29 @@
 # NEXT
 
-## ▶ Next session here: LOWs as time allows, or move to the older queue (storage SEC-01/02, then talk4me) — each in its own project folder
+## ▶ Next session here: talk4me is next in the older queue if picked up; storage SEC-01/02 runs in its own folder (Opus, money)
 
-✅ **Good to clear.** FR-09..11 done and pushed 2026-09-28 (`d422d1a`, tagged **`v1.1.0`**, model: Sonnet). 5 new tests (144 total
+✅ **Good to clear.** 6 of 8 LOWs fixed and pushed 2026-09-28 (`a121708`, tagged **`v1.1.1`**, model: Sonnet — `security:` release,
+**clones (tradepost, pulseboard, callboard) owe this within 7 days, by 2026-10-05**). 10 new tests (154 total pass, 1 file:
+`tests/integration/low-2026-09-28.test.ts`), each of the 5 test-covered fixes (K1 x2, K2, K5, K6, K13) mutation-checked red by
+reverting just that source file with the new test in place, confirming failure, then restoring — not just asserted done.
+Typecheck and lint clean.
+- **K1** (`session.ts`, `link.ts`): `signOutEverywhere`/`confirmEmailChange` now also spend the user's other unused sign-in
+  links, atomically with the session/email change. Cookie renamed `session` → `__Host-session`, `Secure` unconditional.
+- **K2** (`totp.ts`): `confirmTotp` now runs `assertFresh` and claims enrolment via a conditional `updateMany` on
+  `totpEnrolledAt: null`, so a concurrent second confirm loses the race instead of also minting 10 more recovery codes.
+- **K5** (`http.ts`): IPv6 rate-limit key now scoped to the address's first 64 bits, not the exact address.
+- **K6** (`orgs.ts`): `removeMember` now revokes that user's active share links in the org, same transaction as the delete.
+- **K13** (`invites.ts`, `links.ts`, `projects/actions.ts`): `addProject`, `createShareLink`, `revokeShareLink`,
+  `revokeInvite` now wrap their write and `audit()` call in one `db.$transaction`. Only `invites.ts` has direct mutation-check
+  coverage in the new test file; `links.ts`/`actions.ts` got the identical pattern, not separately mutation-checked.
+- **Not fixed, deferred on purpose** (see `audit/FOUNDATION-REVIEW-2026-09-26.md` LOW section): K13's `audit_append_only`
+  role separation (needs a second non-owner Postgres role — real infra change, add if the audit log ever needs to survive a
+  compromised app role) and the `.env.example`/drift tooling item (already accepted, documented behavior, D-19d).
+- **Not done, on purpose**: clone upgrade notes for v1.1.1 in tradepost/pulseboard/callboard's own `NEXT.md` — each clone
+  upgrades in its own session, per the established pattern; they're still behind (all at v1.0.1 per `CLONES.md`) and now
+  owe both v1.1.0 and this v1.1.1 `security:` release.
+
+**Older checkpoint (superseded above):** FR-09..11 done and pushed 2026-09-28 (`d422d1a`, tagged **`v1.1.0`**, model: Sonnet). 5 new tests (144 total
 pass), each confirmed red against the prior behavior before its fix (patched-to-old-code, ran, restored). Typecheck and lint clean.
 - **FR-09**: `FOUNDATION_PATCHES.md` entries now carry a hash of the excused diff (`` `path` `hash` — reason ``); `foundation:drift`
   fails again once that path's diff moves on, instead of excusing it forever. Error message prints the hash to paste in.
@@ -23,8 +44,11 @@ pass), each confirmed red against the prior behavior before its fix (patched-to-
    Choices: pending-MFA TTL 10 min; wrong-code cap 20/user/UTC day; invite caps 50/sender, 100/org, 5/recipient per day; the cancel hook lives in clone-owned `src/app/org-hooks.ts` (core may not import modules); concurrent pending checkouts still make two subs (ponytail note, logged).
 3. ~~FR-06/07/08~~ **Done 2026-09-28, untagged (CHANGELOG *Unreleased (1.1.0)*)**: `unguardedEntrypoints()` + `// public: <reason>` markers (14 files), glob all of `src/` + inline `'use server'` refused, id-like untagged fields throw (`notRef()` opt-out). 7 mutations red, 139 pass. Tag v1.1.0 after FR-09..11, then add each clone's upgrade note (their NEXT already says v1.1.0 follows).
 4. ~~FR-09/10/11 tooling~~ **Done 2026-09-28, tagged `v1.1.0`** (`d422d1a`). See the checkpoint note above.
-5. LOWs as time allows. Each fix: test red without it (mutation-check), CHANGELOG, tag, then add each clone's upgrade to its own NEXT.md.
-Clones: tradepost (4200), pulseboard (4500), callboard (4600) — each upgrades in its own session.
+5. ~~LOWs (K1, K2, K5, K6, K13 writes)~~ **6 of 8 done 2026-09-28, tagged `v1.1.1`** (`a121708`). See the checkpoint note above.
+   Remaining 2 are deliberately deferred/no-action, not open work (K13 audit-role separation needs new infra; drift/.env.example
+   item is accepted behavior) — the LOW queue item is closed.
+Clones: tradepost (4200), pulseboard (4500), callboard (4600) — each upgrades in its own session. All three still owe v1.1.0
+*and* v1.1.1 (`security:`, due 2026-10-05) — neither has an upgrade note yet.
 
 **Also done 2026-09-26:** clinic D-32 (group leader writes notes for own group only, `f35252c`) and rental SEC-16 / D-266
 (unrouted inbox portfolio-wide only, `58a0b5b`); CI green in both. Both repos had another session active at the time.
