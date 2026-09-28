@@ -3,7 +3,8 @@
 A two-sided home-services marketplace. Clients book pros; the platform holds the money until the work is
 confirmed; disputes go to a platform admin. Runs locally on **:4200**. It is not deployed.
 
-Every command and screen below was run against the seeded database on 2026-09-26.
+Every command and screen below was run against the seeded database on 2026-09-26, and every command was re-run
+clean on 2026-09-28 against `v1.2.0` (D-016): health check, `/demo`, `npm test` (212/212), lint, typecheck and drift.
 
 ## Setup (once, about 2 minutes)
 
@@ -88,7 +89,7 @@ not reveal that it exists. As the client, open `/admin/disputes`: also 404.
 ## Proof it holds
 
 ```bash
-npm test          # 168 tests on local Postgres tradepost_test, including the seeded-month invariant
+npm test          # 212 tests on local Postgres tradepost_test, including the seeded-month invariant
 npm run lint && npm run typecheck && npm run foundation:drift
 ```
 
@@ -111,6 +112,7 @@ and asserts every job ends terminal with a balanced ledger.
 - **Payments are simulated.** The ledger is real and balanced; no card is charged and no money moves. Nothing in the job flow calls Stripe.
 - **Not deployed.** Local only, demo accounts only.
 - **The 72-hour auto-confirm is proven in tests, not on screen.** It runs from `/api/cron` on the injected clock. Locally `CRON_SECRET` is unset, so the route refuses. To show it, point at the seeded-month test.
-- **The UI is deliberately plain.** Two state machines, the ledger and the guards were the scope. There is no styling pass and no geocoder.
+- **The design pass (D-011) covers tokens, type, the job card and the header; there is no geocoder.** Two state machines,
+  the ledger and the guards were the scope, and the ledger overrides the design where the two disagreed.
 - **P1 is cut.** No evidence uploads and no provider payouts.
 - **Reviews and statements read as text only.** Disputes take a written statement, not photos.

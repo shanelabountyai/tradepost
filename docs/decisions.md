@@ -369,3 +369,49 @@ confirms the marker works.
 
 **Gate:** lint (0 errors, 1 upstream warning in `e2e/billing.spec.ts`), typecheck, drift and `check-modules` are
 clean. `npm test` passes 212/212. `npm run test:e2e` passes 10/10.
+
+## D-017 — closure deliverables (2026-09-28)
+
+**DEMO.md re-run:** every command re-verified against `v1.2.0` (health check, `/demo`, `npm test` 212/212, lint,
+typecheck, drift all clean). The date note at the top now records both the original seed date and this re-run.
+One process hygiene note: a `vitest` process from an earlier, already-cleared session was still running against
+this project's database when this item started; it was killed and the sweep re-run clean before trusting the result.
+
+**Cost review.** Nothing bills today:
+
+| Item | State | Decision | Restore note |
+|---|---|---|---|
+| Vercel project | **Does not exist.** `list_projects` search for "tradepost" returns zero. | off | Create it when there is something to demo live; `vercel.json`'s `ignoreCommand` is already in place from day one, so the first deploy is already build-minute-safe. |
+| `vercel.json` cron (`/api/cron`, hourly) | Inert — only runs once a Vercel project exists and is deployed | keep as configured | none needed; it does nothing until deployment |
+| Neon / any cloud Postgres | **None.** Local Postgres only (`tradepost`, `tradepost_test`) | off | Provision only alongside the first deployment |
+| GitHub Actions CI (`ci.yml`) | Runs on push to `main` and on PRs, no `schedule:` trigger | keep | Private repo, low push frequency; well inside the free-tier Actions minutes |
+| LLM calls | **None in the app.** `RESEND_API_KEY`, `TWILIO_*`, `STRIPE_*` are template-inherited env names, unset and unused (`EMAIL_ENABLED`/`SMS_ENABLED` off) | off | Wire up and set `*_ENABLED=1` only when a real deploy needs outbound email/SMS/billing |
+| Storage/blob | None used (P1 cut: no evidence upload) | off | n/a until P1 |
+
+**Baseline:** $0/month. Nothing to measure yet; the review exists so the first deploy is a deliberate on-switch,
+not a default.
+
+**Exec brief.** `Tradepost in Brief` already existed (from an earlier session, not recorded in `NEXT.md`) and was
+already skill-compliant: honesty block first, five calls matching the strongest decisions in this log (no provider
+payout release, blind reviews, admin thread-read logging only once disputed, tenancy 404-not-403, and the
+race-test-that-passed-and-proved-nothing habit). An Opus pass re-verified every number against `v1.2.0` rather than
+redoing the brief, and republished it at the same URL (v2):
+- Fixed a stale count ("168 automated checks" → 212, plus the e2e 10/10 from D-016).
+- Fixed the admin thread-read line, which still described the pre-D-009 rule ("only while disputed" instead of
+  "only once disputed", with resolved cases still readable and every read logged).
+- Softened two lines that overstated the tenancy check's coverage, per feedback run 2's F-32.
+- Added that the AI red-team (D-013) attacked the hard rules twice, alongside my own attempts, so the honesty
+  block doesn't imply an independent audit that never happened.
+- **Left alone, a known ceiling:** the brief's page uses its own palette (teal/Instrument Sans) rather than the
+  project's actual design tokens from D-011 (`src/app/globals.css`). Matching them is a restyle, not a fact fix.
+- **212 confirmed by a clean, uncontended `npm test` run** after the agent's own attempts were run alongside
+  other projects' sweeps and came back red on timeouts (a "never run two sweeps at once" case, not a code defect).
+- **The artifact is private.** The three (now six) queued Tradepost LinkedIn posts link to it, so it needs sharing
+  from the page's Share menu before any of them post.
+- `docs/DEMO.md`'s own stale "168 tests" line and its "no styling pass" honesty line (wrong since D-011) are fixed
+  in this item too.
+
+**LinkedIn drafts.** Added three to the Ledger, mined from this log's "Found" sections rather than from features:
+the AI red-team finding the D-014 delete-guard race (AI pillar), the D-007 negative control that caught a cron bug
+(Impact pillar), and the D-012 upstream drift-checker false positive (Scale pillar). The existing three queued posts
+already covered blind reviews, no-provider-payout-release and the dispute split, so those angles were not repeated.
