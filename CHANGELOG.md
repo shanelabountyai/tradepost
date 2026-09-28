@@ -2,6 +2,23 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
+## Unreleased (1.1.0)
+
+security: (FR-06, K3, rule 1) Nothing checked that pages, layouts and route handlers guard themselves; a clone's new page could
+ship unguarded, and a client-side navigation does not re-run the layout's guard. `unguardedEntrypoints()` now requires every
+exported handler in `src/app/**/{page,layout,template,default,route}` to make `requireUser`/`requireOrg` its first `await`, or
+the file to carry a `// public: <reason>` line. The 14 public files are marked.
+
+security: (FR-07, K3) The action harness globbed only `src/{app,modules}`, and could not see inline `'use server'` functions,
+which Next also registers as endpoints. It now globs all of `src/`, and any `'use server'` that is not a file's first directive fails.
+
+security: (FR-08, K4) An id typed `z.string()`/`z.cuid()` was filled with `'x'`, so INV-02/03/04 silently skipped that action.
+`generate()` now throws on an untagged field whose name looks like an id (`id`, `…Id(s)`, `slug`, `token`) or whose format is an
+id format; wrap a non-row-id in the new `notRef()` (the two emailed-token fields are).
+
+Upgrade: add `// public: <reason>` to any clone page/route that is deliberately unguarded, move inline server actions into an
+actions file, and tag id fields `ref('<model>')` (or `notRef()`). The failing test names each file or field.
+
 ## 1.0.3 (2026-09-27)
 
 security: (FR-02, K2) A session waiting on TOTP lived 30 days, and the only guess control was 8 tries per 5 minutes: over one session,

@@ -1,3 +1,4 @@
+// public: the root shell; renders no data
 export const metadata = { title: 'SaaS Foundation' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
