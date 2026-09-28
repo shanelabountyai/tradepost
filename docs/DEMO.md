@@ -63,7 +63,7 @@ Say: "The provider can never release funds. Only the client's confirmation, or t
 ### 4. Client confirms, or disputes
 Back as the client at `/jobs`, on the completed job:
 - **Confirm the work is done** releases the payment (less the 10% fee) and opens the 14-day review window.
-- Or open **Report a problem**, write a statement, **Open a dispute**. The payment freezes.
+- Or open **Dispute** ("Freezes the money"), write a statement, **Open a dispute**. The payment freezes.
 
 For the dispute path, sign in as the Brightline owner and add a provider statement under the same disclosure.
 

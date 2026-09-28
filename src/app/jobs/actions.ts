@@ -74,6 +74,8 @@ export const requestJob = userAction(z.object({ listingId: z.string().regex(UUID
     .catch((e) => {
       // F-02: the partial unique index "Job_one_active_per_date" (a stale tab or a double submit)
       if (e?.code === 'P2002') throw new Refused('You already requested this pro for that date. See it in Your jobs.');
+      // F-31: the listing was deleted after it was read (the provider deleted it or its org).
+      if (e?.code === 'P2003') throw new Refused('This listing is no longer available.');
       throw e;
     });
   await audit({ orgId: l.orgId, userId: s.userId }, 'job.request', { targetType: 'job', targetId: job.id });

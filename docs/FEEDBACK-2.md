@@ -49,7 +49,7 @@ addressed (F-26).
 | F-14 no earnings view | open (P1 cut) | `/o/[org]` is still the template placeholder. |
 | F-15 no evidence upload | open. **The PRD required it** | PRD P0-6 says "evidence (file upload)", and D-005 cut it to text-only statements. It was cut in a decision, not left out of scope by the PRD. |
 | F-16, F-17, F-20 | open (P1 cut) | Unchanged. F-16's provider reply and report queue were never in the PRD. |
-| F-18 raw Zod message in search | **open** | `lat=999` still renders "Too big: expected number to be <=90" (`search/page.tsx:104`). |
+| F-18 raw Zod message in search | **fixed D-014** | `lat=999` still renders "Too big: expected number to be <=90" (`search/page.tsx:104`). |
 | F-19 composer live on closed jobs | unchanged, by design | A "closed" label was added. D-006 allows messages in every status, and D-011 kept that. |
 | F-21 no mobile flows | downgraded | D-011 added a responsive layout and a mobile nav. |
 | F-24 client MFA never required | open (observation) | The seed has the client at `mfa: false`, and the real sign-in never asks for MFA. |
@@ -61,16 +61,16 @@ the product already claims.
 
 | # | Sev | Type | Title | Source |
 |---|---|---|---|---|
-| F-25 | medium | defect | The D-012 "no deleting a provider with jobs" guard can be raced | red team |
+| F-25 | medium | defect, **fixed D-014** | The D-012 "no deleting a provider with jobs" guard can be raced | red team |
 | F-26 | high | gap | `requested` jobs never expire, and nobody is reminded | gap analysis |
 | F-27 | high | gap | Provider onboarding leads to an empty page | gap analysis |
 | F-28 | medium | gap | No unread indicator on message threads | provider |
 | F-29 | medium | gap | No trust signals on search results | gap analysis |
-| F-30 | low | defect | Role and admin checks run after input parsing | red team |
-| F-31 | low | defect | A booking that loses the race to an org delete returns 500 | red team |
+| F-30 | low | defect, **fixed D-014** (`manageAction`; `resolveDispute` left, see D-014) | Role and admin checks run after input parsing | red team |
+| F-31 | low | defect, **fixed D-014** | A booking that loses the race to an org delete returns 500 | red team |
 | F-32 | low | defect | The tenancy lint misses several bypass shapes | red team |
-| F-33 | low | defect | DEMO.md stop 4 names a "Report a problem" button that no longer exists | client |
-| F-34 | low | defect | The listing "Edit" control renders as a bare bullet | provider |
+| F-33 | low | defect, **fixed D-014** | DEMO.md stop 4 names a "Report a problem" button that no longer exists | client |
+| F-34 | low | no change (D-014) | The listing "Edit" control renders as a bare bullet | provider |
 | F-35 | info | env | The demo seed does not clear orgs that integration tests leave in `tradepost_test` | client |
 
 **F-25: the D-012 delete guard can be raced.** `beforeOrgDelete` (`src/app/org-hooks.ts`) counts the provider's jobs

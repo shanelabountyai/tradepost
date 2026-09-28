@@ -14,12 +14,15 @@ export const dynamic = 'force-dynamic';
 
 // P0-2 client search: a plain GET form, so a search is a shareable URL and needs no action.
 // ponytail: location is typed as lat/lng; a geocoder (address → point) replaces the two inputs when a demo needs it.
+// F-18: the params come from the URL, so every message is plain language, never Zod's default.
+const where = { error: 'That location is not valid. Search again from the form.' };
+const stars = { error: 'Pick a rating from 0 to 5.' };
 const query = z.object({
-  category: z.enum(ServiceCategory),
-  lat: z.coerce.number().min(-90).max(90),
-  lng: z.coerce.number().min(-180).max(180),
-  date: z.iso.date(),
-  minRating: z.coerce.number().min(0).max(5).default(0),
+  category: z.enum(ServiceCategory, { error: 'Pick a service.' }),
+  lat: z.coerce.number(where).min(-90, where).max(90, where),
+  lng: z.coerce.number(where).min(-180, where).max(180, where),
+  date: z.iso.date({ error: 'Pick a valid date.' }),
+  minRating: z.coerce.number(stars).min(0, stars).max(5, stars).default(0),
 });
 
 export default async function Search({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

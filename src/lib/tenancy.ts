@@ -48,6 +48,26 @@ export function providerDb(ctx: Pick<OrgCtx, 'orgId'>) {
 }
 
 /**
+ * F-25 (D-014): the org-delete guard. One transaction refuses a provider with any job, then deletes its listings.
+ * Every job needs a listing, so once this commits no job (and so no message, review or ledger row) can appear
+ * before core `deleteOrg` runs. A job insert still in flight holds a key-share lock on its listing: the listing
+ * delete waits for it, then fails on the foreign key (P2003) and rolls back. Returns false when refused.
+ */
+export async function closeProviderForDelete(orgId: string): Promise<boolean> {
+  const x = db.$extends({ query: { listing: tenantFilter({ orgId }), job: tenantFilter({ orgId }) } });
+  return x
+    .$transaction(async (tx) => {
+      if (await tx.job.count()) return false;
+      await tx.listing.deleteMany({});
+      return true;
+    })
+    .catch((e) => {
+      if (e?.code === 'P2003') return false;
+      throw e;
+    });
+}
+
+/**
  * Public and read-only: every provider's listings in one category that work on one weekday, with
  * only the fields a client may see. The one un-tenanted read of a provider-owned table (P0-2).
  */

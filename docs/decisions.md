@@ -309,3 +309,31 @@ This run started after a CI fix. `modules-removed` had been red since D-012, bec
 statically imported the removable billing module. The test now loads billing at runtime and still runs every time.
 Shane picked this over an upstream manifest change or leaving CI red. A version with `it.skipIf` was refused by the
 auto-mode classifier as test removal, and it was not needed, because `modules-removed` only typechecks.
+
+## D-014 — fix F-25 and the cheap lows from feedback run 2 (2026-09-28)
+
+**Chose:** F-25, plus F-18, F-30, F-31, F-33 and F-34, as one item. This was the recommendation in `NEXT.md`, and
+Shane said go.
+
+- **F-25 (delete-guard race).** The core `deleteOrg` runs the hook outside its own transaction, and core is
+  template-owned. The clone therefore closes the only way in. `closeProviderForDelete` (`src/lib/tenancy.ts`) counts
+  the provider's jobs and deletes its listings in **one** transaction. Every job needs a listing (a required
+  foreign key, `NoAction`), and messages, reviews and ledger rows all need a job. So once that transaction commits,
+  nothing can be booked before the delete runs. A job insert still in flight holds a key-share lock on its listing,
+  so the listing delete waits for it, fails on the foreign key and rolls back, and the delete is refused.
+  - **Tests:** two race tests in `tests/integration/org-delete.test.ts`. Both fail with the listing delete removed.
+  - **Known ceiling:** if the subscription cancel then throws, the org stays with no listings. That is acceptable,
+    because the owner was deleting it anyway.
+  - **Upstream candidate:** run `beforeDelete` inside the delete transaction.
+- **F-31 (a lost race returned 500).** `requestJob` maps P2003 to "This listing is no longer available."
+- **F-30 (role check after parse).** `manageAction` now checks the role before the input is parsed, so a member gets
+  404 whatever it sends. **`resolveDispute` was not changed.** The template's INV-01..04 harness requires the owner's
+  own call to get through the guard, and a platform-admin-only action cannot pass that. Making every fixture owner a
+  platform admin would weaken the harness to satisfy it. The only thing a non-admin learns there is the refund
+  format. **Upstream candidate:** let the harness express a platform-admin action.
+- **F-18 (raw Zod messages).** Every search param now carries a plain-language message.
+- **F-33 (stale button name).** DEMO.md stop 4 now names **Dispute**.
+- **F-34 (Edit control).** No change. The listing "Edit" control uses the same ▸ disclosure as Dispute and Review,
+  so the design is consistent.
+
+**Gate (2026-09-28):** lint and typecheck clean, `npm test` 188/188, e2e 10/10.

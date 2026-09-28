@@ -137,6 +137,9 @@ describe('lifecycle', () => {
     expect(await providerActions.acceptJob('p', { id: P.j.id }).catch(outcome)).toBe('notFound');
     expect(await providerActions.declineJob('p', { id: P.j.id }).catch(outcome)).toBe('notFound');
     expect(await addListing('p', { ...LISTING, title: 'x', rate: '50', d1: 'on' }).catch(outcome)).toBe('notFound');
+    // F-30: guard first, so a malformed input is notFound too, not a validation message
+    expect(await providerActions.acceptJob('p', { id: 'x' }).catch(outcome)).toBe('notFound');
+    expect(await addListing('p', { title: '' }).catch(outcome)).toBe('notFound');
     expect(await requireOrg('p', 'billing.manage').catch(outcome)).toBe('notFound'); // was a 500 (AuthzError)
     expect(await providerActions.sendMessageAsProvider('p', { id: P.j.id, body: 'on my way' }).catch(outcome)).toBe('redirect');
     expect(await job()).toMatchObject({ status: 'requested' });
