@@ -267,3 +267,5 @@ org pages have two navs (Main and Business). `e2e/demo.spec.ts` and `e2e/onboard
 **Found, not fixed:** `e2e/demo.spec.ts` cannot load. It imports `scripts/seed-demo.ts` → `src/lib/jobs.ts` →
 `next/navigation`, which Node's ESM loader in Playwright cannot resolve without `.js`. This has been broken since D-007
 and is not caused by this pass. The other five specs pass (9 tests).
+**Fixed 2026-09-28:** the spec runs `npm run seed:demo:test` as a child process instead of importing the seed, and
+now names the Brightline owner (it still named the template's Acme org). Full `npm run test:e2e`: 10/10 passed.

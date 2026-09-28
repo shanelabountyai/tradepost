@@ -14,10 +14,8 @@ Queue, in order:
 3. Design brief: **done**. F-03, F-06, F-12, F-13, F-19 and the two D-009 states are folded into `docs/DESIGN_BRIEF.md`.
 4. Design pass (D-010, D-011): **done**. Implemented from Claude Design; the review and the three places the ledger overrode
    the mockup are in D-011.
-5. **Next: fix `e2e/demo.spec.ts`** (D-011, "Found, not fixed"). Playwright's ESM loader cannot resolve `next/navigation`
-   through `scripts/seed-demo.ts` → `src/lib/jobs.ts`. Likely fix: have the spec run the seed as a child process
-   (`npm run seed:demo:test`) instead of importing it. Then run the full `npm run test:e2e`. (Sonnet)
-6. Foundation upgrade `v1.0.2` then `v1.0.3` (above).
+5. Fix `e2e/demo.spec.ts`: **done** (D-011). Full e2e 10/10.
+6. **Next:** foundation upgrade `v1.0.2` then `v1.0.3` (above).
 
 Run one item per session. The foundation upgrade above is its own item; do it before or after the design, not inside it.
 
