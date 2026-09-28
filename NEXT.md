@@ -1,9 +1,5 @@
 # NEXT
 
-## ⚠ CI is red — fix first (added 2026-09-28)
-CI red since D-012 (2026-09-28). The `ci` job passes, but `modules-removed` (`npm run foundation:check-modules`) fails `tsc`: `tests/integration/org-delete.test.ts` imports `@/modules/billing/provider` and uses `prisma.billingAccount`, so it has to skip or live inside the billing module.
-**Every item:** run `gh run list --limit 3` before starting and after pushing. If CI is red, fixing it is the item, ahead of the queue. Delete this block once CI is green.
-
 Queue, in order:
 1. Feedback run (D-008): **done**. Findings are in `docs/FEEDBACK.md`.
 2. Fix item (D-009): **done**.
