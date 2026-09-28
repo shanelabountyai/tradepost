@@ -337,3 +337,9 @@ Shane said go.
   so the design is consistent.
 
 **Gate (2026-09-28):** lint and typecheck clean, `npm test` 188/188, e2e 10/10.
+
+## D-015 — foundation v1.1.0 + v1.1.1 before the closure deliverables (2026-09-28)
+
+**Chose:** merge foundation v1.1.0 and v1.1.1 as the next item, ahead of closure. Shane picked this over doing
+closure first. The reasons: v1.1.1 is a `security:` release due 2026-10-05, and its sign-in changes may change
+DEMO.md, which closure re-runs. Doing the merge first means that re-run happens only once.

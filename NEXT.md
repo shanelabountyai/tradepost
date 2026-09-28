@@ -9,7 +9,10 @@ Queue, in order:
 5. Fix `e2e/demo.spec.ts`: **done** (D-011). Full e2e 10/10.
 6. Foundation upgrade `v1.0.2` + `v1.0.3`: **done** (D-012). Includes a clone fix: provider deletion is refused before
    the subscription is cancelled.
-7. **Next: closure deliverables.** Four are needed (global CLAUDE.md, *Definition of done*):
+7. **Next: foundation `v1.1.0` + `v1.1.1` merge** (Shane, 2026-09-28: ahead of closure, because v1.1.1 is a `security:`
+   release due 2026-10-05 and it may change the sign-in steps in DEMO.md). Opus. Merge both as one item, run the full
+   gate, and check `FOUNDATION_PATCHES.md` against what upstream now covers.
+8. **Then: closure deliverables.** Four are needed (global CLAUDE.md, *Definition of done*):
    - `docs/DEMO.md` exists. Re-run every command in it once, because the D-011 header and D-012 changes may have moved things.
    - Exec brief `Tradepost in Brief` (the `exec-brief` skill), matched to the sibling briefs.
    - LinkedIn drafts in the Ledger. Mine the "Found" sections in `docs/decisions.md` first.
