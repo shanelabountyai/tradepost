@@ -297,3 +297,15 @@ Since D-008, the D-009 fixes, the design pass (D-011) and the foundation v1.0.2/
 The agents run in sequence on the production build on :4200, using `tradepost_test` seeded by `seed:demo:test`, as in
 D-008. Each agent is also told the D-008 findings, so it can mark each one fixed, still open, or regressed, and report
 anything new. **Output:** `docs/FEEDBACK-2.md`. Nothing is fixed in this pass.
+
+**Outcome (2026-09-28):** 5/5 agents completed, and the findings are in `docs/FEEDBACK-2.md`. All four hard rules held
+again. Of the D-008 defects, seven are fixed, F-19 is unchanged by design, and F-03, F-18 and F-24 are still open.
+Eleven new findings (F-25..F-35). The one shipped-scope defect that matters is **F-25**: the D-012 delete guard can
+be raced, because the job count and the delete are not under one lock. Two launch gaps were new: F-26 (requests never
+expire) and F-27 (provider onboarding lands on an empty page). F-15 was re-classified: the PRD required evidence
+upload, and D-005 cut it. The fix item is not yet chosen.
+
+This run started after a CI fix. `modules-removed` had been red since D-012, because `tests/integration/org-delete.test.ts`
+statically imported the removable billing module. The test now loads billing at runtime and still runs every time.
+Shane picked this over an upstream manifest change or leaving CI red. A version with `it.skipIf` was refused by the
+auto-mode classifier as test removal, and it was not needed, because `modules-removed` only typechecks.

@@ -1,6 +1,9 @@
 # NEXT
 
 Queue, in order:
+0. Feedback run 2 (D-013): **done**. Findings are in `docs/FEEDBACK-2.md`. **Next, decide the fix item.** The
+   candidate is F-25 (a race in the D-012 delete guard; the fix touches the template's `deleteOrg`), plus the cheap
+   lows F-18, F-30, F-33 and F-34. Choose it before the closure deliverables, because F-33 changes DEMO.md.
 1. Feedback run (D-008): **done**. Findings are in `docs/FEEDBACK.md`.
 2. Fix item (D-009): **done**.
 3. Design brief: **done**.
