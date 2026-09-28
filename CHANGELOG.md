@@ -2,6 +2,14 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
+## 1.2.0 (2026-09-28)
+
+F-03: a clone can now declare a module required in the clone-owned `src/app/required-modules.ts`. `foundation:check-modules`
+leaves a required module in place and still removes the rest, instead of always removing both — callboard imports
+`notifications` outside the marked lines (`src/lib/messages.ts`, `src/lib/broadcast.ts`, `/api/sms/inbound`, the event
+actions), so its `modules-removed` CI job has failed `tsc` since 2026-09-26. Verified for real: `check-modules` with
+`notifications` required passes with only billing removed, and with no module required it still removes both, unchanged.
+
 ## 1.1.1 (2026-09-28)
 
 security: (LOW K1) `signOutEverywhere` and `confirmEmailChange` left any unused `login`/`signup` link for that user valid — a

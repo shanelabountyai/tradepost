@@ -58,6 +58,10 @@ that includes the module's nav link, so it goes with the rest.
 `foundation:check-modules` does exactly this in a scratch copy and requires validate, typecheck, build and drift to pass.
 The module's tables stay in the migration history; drop them with a clone migration if you want them gone.
 
+If your own code imports a module outside the marked lines (a clone's own routes or lib files, not just
+`cron-jobs.ts`/`org-hooks.ts`), list it in `src/app/required-modules.ts`. `check-modules` leaves a required module in
+place and still removes the rest.
+
 ## Staying current
 
 Template-owned paths (core, modules, invariants, security routes) are never edited in a clone, so `git merge vX.Y.Z` is clean.

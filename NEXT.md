@@ -2,6 +2,19 @@
 
 ## ▶ Next session here: talk4me is next in the older queue if picked up; storage SEC-01/02 runs in its own folder (Opus, money)
 
+✅ **Good to clear.** **F-03 done and pushed 2026-09-28, tagged `v1.2.0`** (model: Sonnet — spec-following tooling, no new
+logic). A clone declares a module required in the clone-owned `src/app/required-modules.ts`; `foundation:check-modules`
+(`scripts/foundation-modules.ts`'s new `modulesToRemove()`) leaves that module in place and still removes the rest. 3 new
+unit tests (157 total pass), the filter mutation-checked red (dropped it, confirmed the test failed, restored). Verified
+for real, not just unit-tested: ran `foundation:check-modules` once with `notifications` required — passed with only
+billing removed and `notifications` left in place — and once with the template's default (nothing required) to confirm
+the existing CI job is unchanged. **Also fixed in passing:** `FOUNDATION_VERSION` was still `v1.1.0` — the `v1.1.1`
+release (`a121708`) never bumped it, a step the release process (`IMPLEMENTATION_PLAN.md` §3.3) requires; a clone created
+between those two commits would have stamped the wrong base version. Now `v1.2.0`, current.
+**Not done, on purpose:** callboard hasn't merged the release yet — that's callboard's own session, per the established
+pattern (it still owes `v1.1.0` and the `security:` `v1.1.1` too, due 2026-10-05). Its `CLONES.md` row stays `v1.0.1`
+until then.
+
 **CI fixed 2026-09-28** (`37cf7c4`, model: Opus — real regression, not a stale-test triage). Root cause: `e2e/billing.spec.ts`
 still injected a cookie named `session` via `context.addCookies`; K1 (`a121708`) had renamed the real cookie to `__Host-session`.
 Fixed to the new name — but Chromium's CDP rejects a `__Host-` cookie set with a plain `http://` `url` field ("Invalid cookie

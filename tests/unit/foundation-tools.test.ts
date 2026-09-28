@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { drift, hashOf, patchedHash, type Change } from '../../scripts/foundation-drift';
+import { MODULES, modulesToRemove } from '../../scripts/foundation-modules';
 import { portInUse, rewrite } from '../../scripts/new-project';
 
 const none = () => false;
@@ -53,6 +54,18 @@ describe('foundation:drift rules', () => {
     expect(patchedHash(patches, 'src/core/tokens.ts')).toBe('abc123def456');
     expect(patchedHash(patches, 'src/core/cron.ts')).toBe('111111111111');
     expect(patchedHash(patches, 'src/core/other.ts')).toBeUndefined();
+  });
+});
+
+describe('modulesToRemove (F-03)', () => {
+  it('removes every module when none is required', () => {
+    expect(modulesToRemove([]).map(([name]) => name)).toEqual(Object.keys(MODULES));
+  });
+  it('leaves a required module out of the removal list, and still removes the rest', () => {
+    expect(modulesToRemove(['notifications']).map(([name]) => name)).toEqual(['billing']);
+  });
+  it('throws on a name that is not a real module, instead of silently doing nothing', () => {
+    expect(() => modulesToRemove(['typo'])).toThrow(/unknown module "typo"/);
   });
 });
 
