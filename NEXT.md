@@ -1,5 +1,9 @@
 # NEXT
 
+## ⚠ CI is red — fix first (added 2026-09-28)
+CI red since D-012 (2026-09-28). The `ci` job passes, but `modules-removed` (`npm run foundation:check-modules`) fails `tsc`: `tests/integration/org-delete.test.ts` imports `@/modules/billing/provider` and uses `prisma.billingAccount`, so it has to skip or live inside the billing module.
+**Every item:** run `gh run list --limit 3` before starting and after pushing. If CI is red, fixing it is the item, ahead of the queue. Delete this block once CI is green.
+
 Queue, in order:
 1. Feedback run (D-008): **done**. Findings are in `docs/FEEDBACK.md`.
 2. Fix item (D-009): **done**.
@@ -15,9 +19,13 @@ Queue, in order:
    - Cost review. Nothing is deployed yet, so record that, plus any crons in `vercel.json`, with keep / slow / off.
    Record every artifact URL in `docs/RELEASE_NOTES.md`.
 
-Waiting upstream: foundation `v1.1.0` (FR-06..11). Merge it as its own item once it is tagged.
+Waiting upstream: foundation `v1.1.0` (FR-06..11), now tagged, **and `v1.1.1`** (2026-09-28, `security:` — 6 LOWs: stale
+sign-in links, TOTP concurrent double-issue, IPv6 rate-limit /64 scoping, orphaned share links, non-atomic audit writes).
+`security:` releases are due within 7 days — **v1.1.1 is due 2026-10-05**. Merge both as one upstream-upgrade item.
 
 **Upstream candidates** (raise when the foundation repo is next open): the `requireOrg` 404 patch, and release commits
-not bumping `FOUNDATION_VERSION` (v1.0.2 and v1.0.3 both say v1.0.1). Both are in `FOUNDATION_PATCHES.md`.
+not bumping `FOUNDATION_VERSION` (v1.0.2 and v1.0.3 both say v1.0.1). Both are in `FOUNDATION_PATCHES.md`. Also: let a
+clone list its own module-dependent tests for `foundation:check-modules` (the clone's `org-delete.test.ts` works around
+this with a runtime import).
 
 Run one item per session.

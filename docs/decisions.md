@@ -287,3 +287,13 @@ refusal, that `cancel` is never called, and that the org remains. It fails with 
 every upstream change as clone drift. The clone sets it to `v1.0.3`, and that is recorded in `FOUNDATION_PATCHES.md`.
 
 **Gate:** lint, typecheck and drift are clean. `npm test` passes 186/186. `npm run test:e2e` passes 10/10.
+
+## D-013 — second full feedback run, before closure (2026-09-28)
+
+**Chose:** rerun the full D-008 set (Sonnet personas ×3, Opus red team, Sonnet gap analysis). Shane picked this over a
+review of only the changes since D-008 (the recommended option), a red-team-only retest, and going straight to closure.
+Since D-008, the D-009 fixes, the design pass (D-011) and the foundation v1.0.2/v1.0.3 merge (D-012) have changed 52 files.
+
+The agents run in sequence on the production build on :4200, using `tradepost_test` seeded by `seed:demo:test`, as in
+D-008. Each agent is also told the D-008 findings, so it can mark each one fixed, still open, or regressed, and report
+anything new. **Output:** `docs/FEEDBACK-2.md`. Nothing is fixed in this pass.
