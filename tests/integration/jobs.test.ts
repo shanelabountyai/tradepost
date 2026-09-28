@@ -402,3 +402,22 @@ describe('threads (P0-7)', () => {
     expect(await reads()).toHaveLength(1);
   });
 });
+
+describe('notifications (P1: email minimum)', () => {
+  const outbox = () => db.outbox.findMany({ select: { to: true, orgId: true } });
+
+  it('a request notifies the provider; a provider move and a client message each notify the other side', async () => {
+    await signInAs(P.c.id);
+    expect(await requestJob({ listingId: P.l.id, date: '2026-10-06' }).catch(outcome)).toBe('redirect');
+    expect(await outbox()).toEqual([{ to: P.u.email, orgId: P.p.id }]);
+
+    await run('accept'); // provider acts -> notifies the client, not itself
+    expect((await outbox()).at(-1)).toEqual({ to: P.c.email, orgId: null });
+
+    await postMessage(P.pro, P.j.id, 'provider', 'On my way');
+    expect((await outbox()).at(-1)).toEqual({ to: P.c.email, orgId: null });
+
+    await postMessage(P.cli, P.j.id, 'client', 'Thanks!');
+    expect((await outbox()).at(-1)).toEqual({ to: P.u.email, orgId: P.p.id });
+  });
+});

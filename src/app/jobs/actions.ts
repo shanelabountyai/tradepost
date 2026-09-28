@@ -7,6 +7,7 @@ import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import { Refused } from '@/core/errors';
 import { submitStatement, transition, type Transition } from '@/lib/jobs';
+import { notifyProvider } from '@/lib/notify';
 import { submitReview } from '@/lib/reviews';
 import { weekday } from '@/lib/search';
 import { postMessage } from '@/lib/threads';
@@ -79,5 +80,6 @@ export const requestJob = userAction(z.object({ listingId: notRef(z.string().reg
       throw e;
     });
   await audit({ orgId: l.orgId, userId: s.userId }, 'job.request', { targetType: 'job', targetId: job.id });
+  await notifyProvider(l.orgId, 'New job request', `You have a new booking request for ${i.date}.`);
   redirect('/jobs');
 });

@@ -3,6 +3,7 @@ import { audit } from '@/core/audit';
 import { now } from '@/core/clock';
 import { Refused } from '@/core/errors';
 import type { JobStatus, LedgerKind, Party } from '@/generated/prisma/enums';
+import { notifyClient, notifyProvider } from '@/lib/notify';
 import { dueForAutoConfirm, inProviderTx, providerDb } from '@/lib/tenancy';
 
 // P0-3/P0-4: the job lifecycle and its escrow, as one table. A job moves only through transition(),
@@ -70,7 +71,7 @@ type Jobs = ReturnType<typeof providerDb>['job'];
 export async function transition(jobs: Jobs, id: string, name: Transition, by: Actor, opts: { statement?: string; refundCents?: number; adminId?: string } = {}) {
   const t = TRANSITIONS[name];
   if (!(t.by as readonly Actor[]).includes(by)) throw new Error(`A ${by} cannot ${name} a job.`);
-  const job = await jobs.findFirst({ where: { id }, select: { status: true, amountCents: true } });
+  const job = await jobs.findFirst({ where: { id }, select: { status: true, amountCents: true, orgId: true, date: true, client: { select: { email: true } } } });
   if (!job) notFound();
   if (!([t.from].flat() as JobStatus[]).includes(job.status)) throw new Refused(`That step is not open while the job is ${job.status.replace('_', ' ')}.`);
   const at = now();
@@ -91,6 +92,11 @@ export async function transition(jobs: Jobs, id: string, name: Transition, by: A
       if (e?.code === 'P2025') throw new Refused('This job just changed. Reload and try again.');
       throw e;
     });
+  // Notify the other side of a human move; both sides of a system/admin one (auto-confirm, dispute resolution).
+  const subject = `Job update: ${t.to.replace('_', ' ')}`;
+  const body = `Your booking on ${job.date.toISOString().slice(0, 10)} is now ${t.to.replace('_', ' ')}.`;
+  if (by !== 'provider') await notifyProvider(job.orgId, subject, body);
+  if (by !== 'client') await notifyClient(job.client.email, subject, body);
 }
 
 /** Cron (P0-3): closes every job completed 72h ago on the injected clock, releasing its escrow. */

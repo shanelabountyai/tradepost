@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { audit } from '@/core/audit';
 import { now } from '@/core/clock';
 import type { Party } from '@/generated/prisma/enums';
+import { notifyClient, notifyProvider } from '@/lib/notify';
 import { inProviderTx, type providerDb } from '@/lib/tenancy';
 
 // P0-7: one thread per job between its client and its provider, refreshed by polling. Both sides reach
@@ -15,10 +16,19 @@ type Jobs = ReturnType<typeof providerDb>['job'];
 export const THREAD = { orderBy: { createdAt: 'asc' }, select: { id: true, by: true, body: true, createdAt: true } } as const;
 
 export async function postMessage(jobs: Jobs, id: string, by: Party, body: string) {
-  await jobs.update({ where: { id }, data: { messages: { create: { by, body, createdAt: now() } } } }).catch((e) => {
-    if (e?.code === 'P2025') notFound();
-    throw e;
-  });
+  const job = await jobs
+    .update({
+      where: { id },
+      data: { messages: { create: { by, body, createdAt: now() } } },
+      select: { orgId: true, client: { select: { email: true } } },
+    })
+    .catch((e) => {
+      if (e?.code === 'P2025') notFound();
+      throw e;
+    });
+  const subject = 'New message on your job';
+  if (by === 'client') await notifyProvider(job.orgId, subject, 'You have a new message from the client.');
+  else await notifyClient(job.client.email, subject, 'You have a new message from the provider.');
 }
 
 /**

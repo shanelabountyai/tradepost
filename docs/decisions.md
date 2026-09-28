@@ -455,3 +455,40 @@ would have gone red the moment the org-home page changed. Updated to assert the 
 **Gate:** lint (0 errors, the one pre-existing upstream warning), typecheck, drift and `check-modules` clean.
 `npm test` 214/214 (2 new: `tests/integration/earnings.test.ts`, tenancy-scoped ledger sums, including a
 cross-provider leak check). `npm run test:e2e` 10/10.
+
+## D-019 — job-request and message email notifications (2026-09-28)
+
+**Correction to D-018:** "no email/SMS code exists anywhere in `src`" was wrong — a full transactional
+outbox (`src/modules/notifications`: `enqueue`, `drainOutbox`, `sweepOutbox`, a generic `notice` template)
+already shipped with the v1.2.0 foundation merge (D-016) and was already drained hourly by the existing
+cron (`src/app/cron-jobs.ts`), just never called from any of this clone's own code. The grep that produced
+that line matched `sendEmail`/`mailer` too narrowly; a second pass turned up the module. This item was
+therefore much smaller than sized: wire three call sites into infrastructure that already existed, not
+build a pipeline.
+
+- **`src/lib/notify.ts`** (new): `notifyClient(email, subject, body)` and `notifyProvider(orgId, subject,
+  body)`, both riding the existing `enqueue()` into the `notice` template. `notifyProvider` fans out to
+  every owner/admin membership on the org — the same set `canManage` lets act on the org's jobs
+  (`src/lib/roles.ts`). Failures are caught and logged (`notify.failed`, never the address — INV-13), so a
+  notification never fails the job move or message it rides with.
+- **`src/lib/jobs.ts` (`transition()`):** after a successful move, notifies the other side of a client/provider
+  action, or both sides of a system (auto-confirm) or admin (dispute resolution) one — one `by !== X` pair
+  covers all ten transitions, no per-transition special-casing.
+- **`src/lib/threads.ts` (`postMessage()`):** notifies whichever party didn't send the message.
+- **`src/app/jobs/actions.ts` (`requestJob`):** notifies the provider org on a new booking request — the
+  one path that doesn't go through `transition()`.
+- **`src/app/required-modules.ts`: added `'notifications'`.** `foundation:check-modules` deletes any
+  module not listed here to prove the clone still builds without it; `src/lib/notify.ts` imports the
+  outbox outside the marked `// notifications` lines that removal strips, so leaving it off would have
+  made `check-modules` fail the moment this landed (it does fail without the entry — caught by running
+  the gate, not by inspection).
+
+**Not done:** SMS (the outbox already supports it, `sendSms`, but no phone number exists to send to — the
+phone-number field is still its own queued item); a dedicated template per event (`notice`'s generic
+subject/body was enough for "email, minimum" and avoided touching the template-owned
+`src/modules/notifications/templates.ts`, which sits outside the paths this clone may edit).
+
+**Gate:** lint (0 errors, one pre-existing upstream warning), typecheck, drift and `check-modules` clean.
+`npm test` 215/215 (1 new, in `tests/integration/jobs.test.ts`: request/accept/message each land the
+right recipient in the outbox). `npm run test:e2e` 10/10.
+cross-provider leak check). `npm run test:e2e` 10/10.
