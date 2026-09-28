@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import type { Prisma } from '@/generated/prisma/client';
-import type { ServiceCategory } from '@/generated/prisma/enums';
+import type { LedgerKind, ServiceCategory } from '@/generated/prisma/enums';
 
 // P0-1 (D-001): the only door to provider-owned tables. Every query through these clients has its
 // tenant filter injected: `where` gets it ANDed in, `create` gets it stamped on, and an update that
@@ -115,6 +115,17 @@ export async function inProviderTx<T>(
   if (!j) notFound();
   const x = db.$extends({ query: { job: tenantFilter({ orgId: j.orgId }) } });
   return x.$transaction((tx) => fn(tx.job as unknown as ReturnType<typeof providerDb>['job'], tx as unknown as Prisma.TransactionClient, j.orgId));
+}
+
+/**
+ * A provider's own earnings (P1): ledger rows summed by kind, across its jobs. LedgerEntry has no
+ * orgId of its own (D-*: only Job and Listing are tenant-scoped columns), so this filters through the
+ * job relation instead of providerDb — still confined to this file, per the tenancy lint.
+ */
+export async function providerLedgerTotals(orgId: string) {
+  const rows = await db.ledgerEntry.groupBy({ by: ['kind'], where: { job: { orgId } }, _sum: { amountCents: true } });
+  const sum = (k: LedgerKind) => rows.find((r) => r.kind === k)?._sum.amountCents ?? 0;
+  return { held: sum('hold') - sum('release') - sum('fee') - sum('refund'), released: sum('release'), fees: sum('fee'), refunded: sum('refund') };
 }
 
 /** Admin (P0-6): every open dispute across providers, with both statements. Callers pass requirePlatformAdmin first. */

@@ -27,6 +27,38 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
     accepted: [[startJob, 'Start', undefined], [cancelJobAsProvider, 'Cancel and refund', 'secondary']],
     in_progress: [[completeJob, 'Mark complete', undefined]],
   } as const;
+  // A contractor persona review (2026-09-28) flagged the flat date-sorted list as the #1 UI gap: nothing
+  // separates a request sitting unanswered from a job that's just waiting on the client or already closed.
+  const needsAction = jobs.filter((j) => j.status in moves);
+  const rest = jobs.filter((j) => !(j.status in moves));
+
+  const Card = (j: (typeof jobs)[number]) => {
+    const client = j.client.email;
+    const autoAt = j.completedAt ? new Date(j.completedAt.getTime() + AUTO_CONFIRM_MS) : undefined;
+    const [lead, text] = nextMove(j.status, 'provider', { other: client, date: j.date, autoAt, member: !manage });
+    return (
+      <section key={j.id} data-fam={family(j.status)}>
+        <div className="top"><Pill status={j.status} /><code>{shortId(j.id)}</code></div>
+        <h2>{j.listing.title}</h2>
+        <p className="sub">{client} · {day(j.date)} · {$(j.amountCents)}</p>
+        <Money status={j.status} amountCents={j.amountCents} ledger={j.ledger} side="provider" other={client} />
+        <p><strong>{lead}</strong> {text}</p>
+        {manage && (
+          <div className="actions">
+            {(moves[j.status as keyof typeof moves] ?? []).map(([action, label, cls]) => (
+              <ActionForm key={label} action={action.bind(null, ctx.slug)}>
+                <input type="hidden" name="id" value={j.id} />
+                <button type="submit" className={cls}>{label}</button>
+              </ActionForm>
+            ))}
+          </div>
+        )}
+        {manage && <DisputePanel id={j.id} status={j.status} amountCents={j.amountCents} open={disputeJobAsProvider.bind(null, ctx.slug)} add={addStatementAsProvider.bind(null, ctx.slug)} />}
+        {manage && <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" other={client} review={reviewClient.bind(null, ctx.slug)} />}
+        <ThreadPanel id={j.id} status={j.status} messages={j.messages} party="provider" other={client} send={sendMessageAsProvider.bind(null, ctx.slug)} />
+      </section>
+    );
+  };
 
   return (
     <main>
@@ -39,33 +71,10 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
           <p>When a client requests one of your listings, it shows up here.</p>
         </section>
       )}
-      {jobs.map((j) => {
-        const client = j.client.email;
-        const autoAt = j.completedAt ? new Date(j.completedAt.getTime() + AUTO_CONFIRM_MS) : undefined;
-        const [lead, text] = nextMove(j.status, 'provider', { other: client, date: j.date, autoAt, member: !manage });
-        return (
-          <section key={j.id} data-fam={family(j.status)}>
-            <div className="top"><Pill status={j.status} /><code>{shortId(j.id)}</code></div>
-            <h2>{j.listing.title}</h2>
-            <p className="sub">{client} · {day(j.date)} · {$(j.amountCents)}</p>
-            <Money status={j.status} amountCents={j.amountCents} ledger={j.ledger} side="provider" other={client} />
-            <p><strong>{lead}</strong> {text}</p>
-            {manage && (
-              <div className="actions">
-                {(moves[j.status as keyof typeof moves] ?? []).map(([action, label, cls]) => (
-                  <ActionForm key={label} action={action.bind(null, ctx.slug)}>
-                    <input type="hidden" name="id" value={j.id} />
-                    <button type="submit" className={cls}>{label}</button>
-                  </ActionForm>
-                ))}
-              </div>
-            )}
-            {manage && <DisputePanel id={j.id} status={j.status} amountCents={j.amountCents} open={disputeJobAsProvider.bind(null, ctx.slug)} add={addStatementAsProvider.bind(null, ctx.slug)} />}
-            {manage && <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" other={client} review={reviewClient.bind(null, ctx.slug)} />}
-            <ThreadPanel id={j.id} status={j.status} messages={j.messages} party="provider" other={client} send={sendMessageAsProvider.bind(null, ctx.slug)} />
-          </section>
-        );
-      })}
+      {needsAction.length > 0 && <h2>Needs your action ({needsAction.length})</h2>}
+      {needsAction.map(Card)}
+      {rest.length > 0 && needsAction.length > 0 && <h2>Everything else</h2>}
+      {rest.map(Card)}
     </main>
   );
 }

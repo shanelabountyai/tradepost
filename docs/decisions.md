@@ -415,3 +415,43 @@ redoing the brief, and republished it at the same URL (v2):
 the AI red-team finding the D-014 delete-guard race (AI pillar), the D-007 negative control that caught a cron bug
 (Impact pillar), and the D-012 upstream drift-checker false positive (Scale pillar). The existing three queued posts
 already covered blind reviews, no-provider-payout-release and the dispute split, so those angles were not repeated.
+
+## D-018 — first P1 item: provider earnings dashboard + real org home (2026-09-28)
+
+Picked the earnings dashboard (PRD's P1 list) as the first past-P0 item: read-only over the already
+invariant-tested ledger, no schema change, no money-path risk.
+
+**Contractor-persona review, before building.** Had an agent read the actual provider-side code (onboarding,
+listings, jobs, the job state machine) and react as a working contractor deciding this app for their business.
+Findings: the org home page was still the template's literal "Nothing here yet" placeholder; the jobs queue is
+one flat date-sorted list with nothing flagging what needs the provider right now; the org-creation flow's next
+step read "invite your team" for a one-person business. All three were cheap to fold into this item, so it did:
+
+- **`src/lib/tenancy.ts`: `providerLedgerTotals(orgId)`.** LedgerEntry has no `orgId` column of its own (only
+  `jobId`), so this filters through the job relation rather than `providerDb`. Still confined to `tenancy.ts` —
+  the tenancy lint (`tests/unit/tenancy-lint.test.ts`) flags any `db.ledgerEntry` outside this file. `held` is
+  derived (`hold − release − fee − refund`), never a separately-tracked number, so it can't drift from the ledger.
+- **`/o/[org]/earnings`** (new page): held / paid out / fees, read straight from that helper.
+- **`/o/[org]` (org home)**, replaced: needs-action count, active listing count, held-in-escrow total, each
+  linking out; an empty-listings nudge instead of the old "invite your team" line.
+- **`/o/[org]/jobs`**, split into "Needs your action" vs. everything else — reusing the `moves` map's own keys
+  (`requested`/`accepted`/`in_progress`) as the needs-action set, so the split can't drift from what the buttons
+  actually cover.
+- **Nav** (`layout.tsx`): a pending-request count on the "Jobs" link, an "Earnings" link added.
+- **Deleted `/o/[org]/projects`** (page + actions): the template's generic "shareable resource" example,
+  unlinked from nav, untested, never replaced since the clone started (its own home page said as much: "The
+  clone replaces this page with its own home"). The `Project`/`ShareLink` models stay — template-owned
+  (`prisma/schema/core.prisma`), and `e2e/share.spec.ts` / the INV-08 harness seed them directly at the DB
+  layer, never through that page, so removing the UI wrapper didn't touch either.
+
+**Not folded in** (contractor review flagged these as real, but sized past this item): job-request/message
+notifications (no email/SMS code exists anywhere in `src`, confirmed by grep — this is the #1 gap, queued next);
+geocoded address entry on the listing form instead of raw lat/lng; a phone-number field for a provider contact.
+
+**Found:** `e2e/onboarding.spec.ts` asserted the old placeholder heading (`'Nothing here yet'`) on a fresh org —
+would have gone red the moment the org-home page changed. Updated to assert the new empty-state heading
+(`"You're all caught up"`) and the "Add your first listing" link.
+
+**Gate:** lint (0 errors, the one pre-existing upstream warning), typecheck, drift and `check-modules` clean.
+`npm test` 214/214 (2 new: `tests/integration/earnings.test.ts`, tenancy-scoped ledger sums, including a
+cross-provider leak check). `npm run test:e2e` 10/10.

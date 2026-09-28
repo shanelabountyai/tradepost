@@ -35,5 +35,6 @@ test('new email → org created → lands in /o/[slug]', async ({ page }) => {
 
   await page.getByRole('main').getByRole('link', { name: /^Acme / }).click(); // the header links it too
   await expect(page).toHaveURL(/\/o\/acme-\d+$/);
-  await expect(page.getByRole('heading', { name: 'Nothing here yet' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "You're all caught up" })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Add your first listing' })).toBeVisible();
 });
