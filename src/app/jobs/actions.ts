@@ -2,7 +2,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { audit } from '@/core/audit';
-import { ref, userAction } from '@/core/authz/action';
+import { notRef, ref, userAction } from '@/core/authz/action';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import { Refused } from '@/core/errors';
@@ -60,7 +60,7 @@ export const sendMessage = userAction(z.object({ id: ref('job'), body: message }
 // listing is the point, so the harness's "another org's id is refused" (INV-02) does not apply to it.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const requestJob = userAction(z.object({ listingId: z.string().regex(UUID), date: z.iso.date() }), async (s, i) => {
+export const requestJob = userAction(z.object({ listingId: notRef(z.string().regex(UUID)), date: z.iso.date() }), async (s, i) => {
   const l = await bookableListing(i.listingId);
   if (!l) notFound();
   // A dual-role user may not hire their own business: it would let them review themselves (P0-5).

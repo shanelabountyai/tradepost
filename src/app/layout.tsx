@@ -1,3 +1,4 @@
+// public: the root shell; renders no data
 import './globals.css';
 import { SiteHeader } from './header';
 

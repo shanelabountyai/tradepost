@@ -343,3 +343,29 @@ Shane said go.
 **Chose:** merge foundation v1.1.0 and v1.1.1 as the next item, ahead of closure. Shane picked this over doing
 closure first. The reasons: v1.1.1 is a `security:` release due 2026-10-05, and its sign-in changes may change
 DEMO.md, which closure re-runs. Doing the merge first means that re-run happens only once.
+
+## D-016 — foundation v1.1.0, v1.1.1 and v1.2.0 merged (2026-09-28)
+
+**Merged:** through `v1.2.0`, not stopping at `v1.1.1`. v1.2.0 was tagged the same day, and it is small: F-03 lets a
+clone declare a module required. There was no reason to leave a known release for a later item. The security
+release v1.1.1 is now in, ahead of its 2026-10-05 due date.
+
+**Conflicts:** `FOUNDATION_VERSION` is now `v1.2.0`. `NEXT.md` is ours. In the root layout, ours was kept plus the
+upstream `// public:` line. In the org layout, ours was kept plus the FR-10 `{/* billing */}` marker. `check-modules`
+confirms the marker works.
+
+**What the new checks caught in clone code:**
+- **FR-06 (a page must guard first).** The two `/admin/disputes` pages called `requirePlatformAdmin()` first, which
+  calls `requireUser` inside it. They now call `requireUser()` first and pass the session in. Writing
+  `requirePlatformAdmin(await requireUser())` does not satisfy the check, which reads the outer `await`. `/search` is
+  public on purpose and is marked `// public:`.
+- **FR-08 (untagged ids).** `requestJob.listingId` and `resolveDispute.jobId` are now `notRef()`. Both are
+  cross-provider by design (D-005, and booking is the point), which the existing comments already explained. Strictly,
+  `notRef` means "not a row id", and these are row ids. **Upstream candidate:** a tag for "a row id, deliberately
+  cross-org", which would let the harness still check INV-01 and existence on them.
+- **FR-09 (hashed patch excuses).** The `guards.ts` entry in `FOUNDATION_PATCHES.md` now carries its hash. The
+  `FOUNDATION_VERSION` row is gone, because v1.2.0's tag carries its own version.
+- **v1.1.1 cookie rename** (`__Host-session`). No clone code, e2e spec or DEMO.md step uses the literal name.
+
+**Gate:** lint (0 errors, 1 upstream warning in `e2e/billing.spec.ts`), typecheck, drift and `check-modules` are
+clean. `npm test` passes 212/212. `npm run test:e2e` passes 10/10.

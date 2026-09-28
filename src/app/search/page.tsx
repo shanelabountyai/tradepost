@@ -12,6 +12,7 @@ import { clientDb, searchableListings } from '@/lib/tenancy';
 export const metadata = { title: 'Find a pro' };
 export const dynamic = 'force-dynamic';
 
+// public: search is open to anonymous visitors; a session only adds the signed-in client's live jobs (F-02).
 // P0-2 client search: a plain GET form, so a search is a shareable URL and needs no action.
 // ponytail: location is typed as lat/lng; a geocoder (address → point) replaces the two inputs when a demo needs it.
 // F-18: the params come from the URL, so every message is plain language, never Zod's default.

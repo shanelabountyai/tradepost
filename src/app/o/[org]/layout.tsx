@@ -12,7 +12,7 @@ export default async function OrgLayout({ children, params }: { children: React.
     <>
       <nav aria-label="Business" className="subnav">
         <strong>{org.name}</strong><Link href={base}>Home</Link><Link href={`${base}/jobs`}>Jobs</Link><Link href={`${base}/listings`}>Listings</Link><Link href={`${base}/settings/members`}>Members</Link>
-        {can(ctx.role, 'billing.manage') && <Link href={`${base}/settings/billing`}>Billing</Link>}
+        {can(ctx.role, 'billing.manage') && <Link href={`${base}/settings/billing`}>Billing</Link>} {/* billing */}
         {can(ctx.role, 'org.delete') && <Link href={`${base}/settings/danger`}>Delete org</Link>}
       </nav>
       {children}

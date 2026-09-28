@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { $, projected, shortId, when } from '@/app/jobs/card';
+import { requireUser } from '@/core/auth/session';
 import { requirePlatformAdmin } from '@/lib/admin';
 import { adminReadThread } from '@/lib/threads';
 
@@ -12,7 +13,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // P0-7, F-05: a platform admin reads a disputed job's thread, open or resolved. Each render is one audited read,
 // which is why the case has its own page rather than sitting on /admin/disputes.
 export default async function Thread({ params }: { params: Promise<{ jobId: string }> }) {
-  const admin = await requirePlatformAdmin();
+  const s = await requireUser();
+  const admin = await requirePlatformAdmin(s);
   const { jobId } = await params;
   if (!UUID.test(jobId)) notFound();
   const job = await adminReadThread(jobId, admin.userId);

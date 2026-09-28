@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { $, day, projected, shortId, when } from '@/app/jobs/card';
 import { ActionForm } from '@/core/ui/action-form';
+import { requireUser } from '@/core/auth/session';
 import { requirePlatformAdmin } from '@/lib/admin';
 import { openDisputes, resolvedDisputes } from '@/lib/tenancy';
 import { resolveDispute } from './actions';
@@ -18,7 +19,8 @@ function splitText(amount: number, refund: number) {
 
 // P0-6 (D-005): platform admins only. Statements are shown here and on the audited case page, nowhere else.
 export default async function Disputes() {
-  await requirePlatformAdmin();
+  const s = await requireUser();
+  await requirePlatformAdmin(s);
   const [jobs, resolved] = await Promise.all([openDisputes(), resolvedDisputes()]);
   return (
     <main>
