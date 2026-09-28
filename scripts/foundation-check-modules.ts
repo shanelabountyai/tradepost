@@ -22,7 +22,8 @@ for (const [name, paths] of Object.entries(MODULES)) {
   for (const p of paths) rmSync(join(work, p), { recursive: true, force: true });
   for (const f of MARKED_FILES) {
     const text = readFileSync(join(work, f), 'utf8');
-    writeFileSync(join(work, f), text.split('\n').filter((l) => !new RegExp(`// ${name}\\s*$`).test(l)).join('\n'));
+    const marker = new RegExp(`(// ${name}|\\{/\\* ${name} \\*/\\})\\s*$`); // the .tsx form for src/app/o/[org]/layout.tsx
+    writeFileSync(join(work, f), text.split('\n').filter((l) => !marker.test(l)).join('\n'));
   }
 }
 sh('npx prisma validate && npx prisma generate');

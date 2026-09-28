@@ -11,5 +11,5 @@ export const MODULES: Record<string, string[]> = {
   ],
   notifications: ['src/modules/notifications', 'prisma/schema/notifications.prisma', 'tests/integration/outbox.test.ts'],
 };
-// Files whose `// <module>` lines go with the module.
-export const MARKED_FILES = ['prisma/schema/core.prisma', 'src/app/cron-jobs.ts', 'src/app/org-hooks.ts'];
+// Files whose `// <module>` (or, in a .tsx file, `{/* <module> */}`) lines go with the module.
+export const MARKED_FILES = ['prisma/schema/core.prisma', 'src/app/cron-jobs.ts', 'src/app/org-hooks.ts', 'src/app/o/[org]/layout.tsx'];

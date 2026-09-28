@@ -2,7 +2,7 @@
 
 Entries prefixed `security:` are mandatory for anything touching an invariant. Clones must take a `security:` release within 7 days.
 
-## Unreleased (1.1.0)
+## 1.1.0 (2026-09-28)
 
 security: (FR-06, K3, rule 1) Nothing checked that pages, layouts and route handlers guard themselves; a clone's new page could
 ship unguarded, and a client-side navigation does not re-run the layout's guard. `unguardedEntrypoints()` now requires every
@@ -18,6 +18,18 @@ id format; wrap a non-row-id in the new `notRef()` (the two emailed-token fields
 
 Upgrade: add `// public: <reason>` to any clone page/route that is deliberately unguarded, move inline server actions into an
 actions file, and tag id fields `ref('<model>')` (or `notRef()`). The failing test names each file or field.
+
+Fix (FR-09, tooling): a path listed once in `FOUNDATION_PATCHES.md` was excused from drift forever, whatever later edits it
+got. Each entry now carries a hash of the excused diff (`` `path` `hash` — reason ``); `foundation:drift` fails again once
+that path's diff moves on, and its error message prints the `` `path` `hash` `` to paste in.
+
+Fix (FR-10, tooling): module removal stripped the `// <module>` lines in `core.prisma` and `cron-jobs.ts` but not the Billing
+nav link in `src/app/o/[org]/layout.tsx` (a JSX file, where a trailing `//` renders as literal text — it now carries
+`{/* billing */}`). `layout.tsx` is in `MARKED_FILES`; `foundation:check-modules` confirms the route is gone after removal.
+
+Fix (FR-11, tooling): `new-project` checked a port only against the template's own 4100, not the port table, and a second run
+silently corrupted the README banner and left scripts on the first port. It now refuses a port already `in use` or `reserved`
+in `~/.claude/CLAUDE.md`'s port table, and refuses to run once `package.json`'s name is no longer `saas-foundation`.
 
 ## 1.0.3 (2026-09-27)
 
