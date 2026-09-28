@@ -9,6 +9,7 @@ test('demo sign-in lands a seeded owner in their org', async ({ page }) => {
   await page.goto('/demo');
   await page.getByRole('button', { name: 'owner@acme.demo.test' }).click();
   await expect(page.getByRole('heading', { name: 'Your orgs' })).toBeVisible();
-  await page.getByRole('link', { name: 'Acme Studio' }).click();
-  await expect(page.getByRole('navigation')).toContainText('Acme Studio');
+  // Scoped: the global header (D-011) also links each org, and the org pages carry a second nav.
+  await page.getByRole('main').getByRole('link', { name: 'Acme Studio' }).click();
+  await expect(page.getByRole('navigation', { name: 'Business' })).toContainText('Acme Studio');
 });

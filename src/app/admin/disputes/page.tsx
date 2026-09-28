@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { $, day, projected, shortId, when } from '@/app/jobs/card';
 import { ActionForm } from '@/core/ui/action-form';
 import { requirePlatformAdmin } from '@/lib/admin';
 import { openDisputes, resolvedDisputes } from '@/lib/tenancy';
@@ -6,51 +7,75 @@ import { resolveDispute } from './actions';
 
 export const metadata = { title: 'Disputes' };
 
-const $ = (cents: number) => (cents / 100).toFixed(2);
+const dollars = (cents: number) => (cents / 100).toFixed(2);
 
-// P0-6 (D-005): platform admins only. Statements are shown here and nowhere else.
+/** How a resolution splits `amount` given `refund`, from the same ledgerRows() the resolution writes. */
+function splitText(amount: number, refund: number) {
+  if (refund >= amount) return 'Full refund · no fee';
+  const { net, fee } = projected(amount - refund);
+  return refund ? `Split · ${$(refund)} refunded · ${$(net)} to pro · ${$(fee)} fee` : `Full release · ${$(net)} to pro · ${$(fee)} fee`;
+}
+
+// P0-6 (D-005): platform admins only. Statements are shown here and on the audited case page, nowhere else.
 export default async function Disputes() {
   await requirePlatformAdmin();
   const [jobs, resolved] = await Promise.all([openDisputes(), resolvedDisputes()]);
   return (
     <main>
       <h1>Open disputes</h1>
-      {!jobs.length && <p>No open disputes.</p>}
-      {jobs.map((j) => (
-        <section key={j.id}>
-          <h2>{j.listing.title} · {j.org.name} · {j.client.email} · {j.date.toISOString().slice(0, 10)}</h2>
-          <p>${$(j.amountCents)} frozen · opened by the {j.dispute?.openedBy} {j.dispute?.openedAt.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>
-          <h3>Client statement</h3>
-          <p>{j.dispute?.clientStatement ?? 'None yet.'}</p>
-          <h3>Provider statement</h3>
-          <p>{j.dispute?.providerStatement ?? 'None yet.'}</p>
-          <p><Link href={`/admin/disputes/${j.id}/thread`}>Read the message thread</Link> (each read is audit-logged)</p>
-          {[['Full refund to the client', $(j.amountCents)], ['Full release to the provider', '0']].map(([label, refund]) => (
-            <ActionForm key={label} action={resolveDispute}>
-              <input type="hidden" name="jobId" value={j.id} />
-              <input type="hidden" name="refund" value={refund} />
-              <button type="submit">{label}</button>
-            </ActionForm>
-          ))}
-          <ActionForm action={resolveDispute}>
-            <input type="hidden" name="jobId" value={j.id} />
-            <label>Split: refund $<input name="refund" inputMode="decimal" required pattern="\d+(\.\d{1,2})?" /></label>{' '}
-            <button type="submit">Resolve with split</button>
-            <p>The rest is released to the provider, less the 10% fee.</p>
-          </ActionForm>
+      {!jobs.length && (
+        <section className="empty">
+          <h2>No open disputes</h2>
+          <p>Nothing is frozen right now. Resolved cases are listed below.</p>
         </section>
-      ))}
-      <h1>Resolved disputes</h1>
-      {!resolved.length && <p>None yet.</p>}
-      <ul>
-        {resolved.map((r) => (
-          <li key={r.jobId}>
-            <Link href={`/admin/disputes/${r.jobId}/thread`}>{r.job.listing.title} · {r.job.org.name} · {r.job.client.email} · {r.job.date.toISOString().slice(0, 10)}</Link>
-            {' '}· ${$(r.job.amountCents)}, ${$(r.refundCents ?? 0)} refunded · resolved {r.resolvedAt!.toISOString().slice(0, 10)}
-          </li>
-        ))}
-      </ul>
-      <p>Opening a resolved case shows its statements and thread, and is audit-logged.</p>
+      )}
+      {jobs.map((j) => {
+        const d = j.dispute;
+        return (
+          <section key={j.id} data-fam="frozen">
+            <div className="top">
+              <span className="pill"><span aria-hidden="true">‖</span>{$(j.amountCents)} frozen</span>
+              <code>{shortId(j.id)}</code>
+            </div>
+            <h2>{j.listing.title}</h2>
+            <p className="sub">{j.client.email} · {j.org.name} · {day(j.date)} · opened by the {d?.openedBy} {d && when(d.openedAt)}</p>
+            <div className="statements">
+              <div className="quote"><h3>Client statement</h3><p>{d?.clientStatement ?? 'None yet.'}</p></div>
+              <div className="quote"><h3>Provider statement</h3><p>{d?.providerStatement ?? 'None yet.'}</p></div>
+            </div>
+            <p><Link href={`/admin/disputes/${j.id}/thread`}>Read the message thread</Link> <small>Each read is recorded in the audit log.</small></p>
+            <ActionForm action={resolveDispute}>
+              <input type="hidden" name="jobId" value={j.id} />
+              <div className="actions split">
+                <label>Refund to client ($)<input name="refund" inputMode="decimal" required pattern="\d+(\.\d{1,2})?" placeholder="0.00" /></label>
+                <button type="submit">Resolve with split</button>
+              </div>
+              <p className="hint">The rest is released to the pro, less the 10% service fee on the released part.</p>
+            </ActionForm>
+            <div className="actions">
+              {[[`Full refund · ${$(j.amountCents)} to client`, dollars(j.amountCents)], [`Full release · ${$(projected(j.amountCents).net)} to pro`, '0']].map(([label, refund]) => (
+                <ActionForm key={refund} action={resolveDispute}>
+                  <input type="hidden" name="jobId" value={j.id} />
+                  <input type="hidden" name="refund" value={refund} />
+                  <button type="submit" className="secondary">{label}</button>
+                </ActionForm>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+      <h2>Resolved</h2>
+      {!resolved.length ? <p className="hint">None yet.</p> : (
+        <ul className="resolved">
+          {resolved.map((r) => (
+            <li key={r.jobId}>
+              <span><Link href={`/admin/disputes/${r.jobId}/thread`}>{shortId(r.jobId)} · {r.job.listing.title}</Link> · {$(r.job.amountCents)}</span>
+              <small>{r.job.client.email} · {r.job.org.name} · {splitText(r.job.amountCents, r.refundCents ?? 0)} · resolved {day(r.resolvedAt!)}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="hint">Opening a resolved case shows its statements and thread, and is recorded in the audit log.</p>
     </main>
   );
 }

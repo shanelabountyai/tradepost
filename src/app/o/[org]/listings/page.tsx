@@ -47,12 +47,20 @@ export default async function Listings({ params }: { params: Promise<{ org: stri
   return (
     <main>
       <h1>Listings</h1>
+      {!manage && <p className="note">You can view listings. The owner adds, edits and deletes them.</p>}
+      {manage && !listings.length && (
+        <section className="empty">
+          <h2>No listings yet</h2>
+          <p>Clients can&apos;t find you until you add one. Use the form below.</p>
+        </section>
+      )}
       {listings.map((l) => (
         <section key={l.id}>
           <h2>{l.title}</h2>
-          <p>
-            {l.category} · ${(l.rateCents / 100).toFixed(2)} · {l.radiusMiles} mi · {l.days.map((d) => DAYS[d]).join(' ')}
+          <p className="sub">
+            {l.category} · ${(l.rateCents / 100).toFixed(2)} base rate · {l.radiusMiles} mi radius · {l.days.map((d) => DAYS[d]).join(' ')}
           </p>
+          {l.description && <p>{l.description}</p>}
           {manage && <>
             <details>
               <summary>Edit</summary>
@@ -64,7 +72,7 @@ export default async function Listings({ params }: { params: Promise<{ org: stri
             </details>
             <ActionForm action={bind(deleteListing)}>
               <input type="hidden" name="id" value={l.id} />
-              <button type="submit">Delete</button>
+              <button type="submit" className="danger">Delete</button>
             </ActionForm>
           </>}
         </section>

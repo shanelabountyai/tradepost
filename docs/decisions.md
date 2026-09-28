@@ -235,3 +235,35 @@ The design-shaped findings (F-03, F-06, F-12, F-13 and F-19) go into the design 
 it against the brief before any CSS is written. Picked over building it here as a Design artifact (a weaker design, and
 the mockups fill the session's context) and over going straight to `globals.css` (no chance to compare before code).
 The brief now carries F-03, F-06, F-12, F-13, F-19 and the two D-009 states (commit `2d8e83a`).
+
+## D-011 — design pass 1 implemented, with the ledger overriding the mockup where they disagree (2026-09-28)
+
+**Source:** Claude Design project `a8da9f80-0ed5-4607-9951-d12916576274` (`Tradepost Design.dc.html`, `JobCard.dc.html`,
+`SiteHeader.dc.html`). Tokens, type, the job card, the header, and every state in the brief went into one
+`src/app/globals.css` plus light classes on the clone-owned pages. `foundation:drift` is clean.
+
+**Where the design was wrong and the code won:**
+
+- **"Money is held at request."** It is not: `accept` writes the hold and `decline`/`withdraw` write nothing
+  (`TRANSITIONS` in `src/lib/jobs.ts`). A requested card shows nothing held ("Held when <pro> accepts … Nothing is
+  charged if they decline"), a declined or withdrawn job reads "Nothing was charged", and only a cancelled-after-accept
+  job reads "Refunded in full. No service fee." The search hint says the same.
+- **Dispute panel on `accepted`.** The state machine allows a dispute from `in_progress` and `completed` only, so the
+  panel stays on those two plus `disputed`.
+- **Provider "Cancel and refund" on accepted** is kept as a secondary action. The mockup dropped it, but removing a
+  shipped move is not a design decision.
+
+**How the money is shown:** every figure is read from the job's ledger rows. The "once released" projection and the
+admin split text call the same `ledgerRows()` the release writes, so the rounding cannot disagree
+(`tests/unit/job-card.test.ts`).
+
+**Deferred (ponytail):** the admin's live split preview (needs client-side money math, a second copy of the fee rule),
+and `confirm()` on Withdraw, Cancel and Decline. Add them when a demo shows someone misclicking.
+
+**Header and e2e:** the header lists each of the user's orgs by name, so `/onboarding` now has two "Acme …" links, and
+org pages have two navs (Main and Business). `e2e/demo.spec.ts` and `e2e/onboarding.spec.ts` scope their locators to
+`main` and the Business nav. `e2e/` is not template-owned.
+
+**Found, not fixed:** `e2e/demo.spec.ts` cannot load. It imports `scripts/seed-demo.ts` → `src/lib/jobs.ts` →
+`next/navigation`, which Node's ESM loader in Playwright cannot resolve without `.js`. This has been broken since D-007
+and is not caused by this pass. The other five specs pass (9 tests).

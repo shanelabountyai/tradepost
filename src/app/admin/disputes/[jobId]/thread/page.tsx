@@ -1,12 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { $, projected, shortId, when } from '@/app/jobs/card';
 import { requirePlatformAdmin } from '@/lib/admin';
 import { adminReadThread } from '@/lib/threads';
 
 export const metadata = { title: 'Dispute case' };
 
-const $ = (cents: number) => (cents / 100).toFixed(2);
-const at = (d: Date) => `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -18,26 +17,38 @@ export default async function Thread({ params }: { params: Promise<{ jobId: stri
   if (!UUID.test(jobId)) notFound();
   const job = await adminReadThread(jobId, admin.userId);
   const d = job.dispute!; // the query requires one
+  const refund = d.refundCents ?? 0;
+  const { net, fee } = projected(job.amountCents - refund);
+  const resolvedText = refund >= job.amountCents
+    ? 'Full refund to the client, no fee.'
+    : `${$(refund)} refunded to the client · ${$(net)} to the pro · ${$(fee)} service fee.`;
   return (
     <main>
-      <p><Link href="/admin/disputes">Back to disputes</Link></p>
-      <h1>Dispute: {job.listing.title}</h1>
-      <p>This read is recorded in the audit log.</p>
-      <p>{job.org.name} · {job.client.email} · ${$(job.amountCents)} · opened by the {d.openedBy} {at(d.openedAt)}</p>
-      {d.resolvedAt ? (
-        <p><strong>Resolved</strong> {at(d.resolvedAt)}: ${$(d.refundCents ?? 0)} refunded to the client, the rest released to the pro less the fee.</p>
-      ) : (
-        <p><strong>Open</strong>, funds frozen.</p>
-      )}
-      <h2>Client statement</h2>
-      <p>{d.clientStatement ?? 'None.'}</p>
-      <h2>Provider statement</h2>
-      <p>{d.providerStatement ?? 'None.'}</p>
+      <p><Link href="/admin/disputes">← Back to disputes</Link></p>
+      <p className="note">This read is recorded in the audit log.</p>
+      <section data-fam={d.resolvedAt ? 'done' : 'frozen'}>
+        <div className="top">
+          <span className="pill"><span aria-hidden="true">{d.resolvedAt ? '✓' : '‖'}</span>{d.resolvedAt ? 'Resolved' : 'Open · money frozen'}</span>
+          <code>{shortId(jobId)}</code>
+        </div>
+        <h1>{job.listing.title}</h1>
+        <p className="sub">{job.client.email} · {job.org.name} · {$(job.amountCents)} · opened by the {d.openedBy} {when(d.openedAt)}</p>
+        {d.resolvedAt ? <p><strong>Resolved {when(d.resolvedAt)}.</strong> {resolvedText}</p> : <p><strong>Open.</strong> The {$(job.amountCents)} stays frozen until an admin resolves it.</p>}
+        <div className="statements">
+          <div className="quote"><h3>Client statement</h3><p>{d.clientStatement ?? 'None.'}</p></div>
+          <div className="quote"><h3>Provider statement</h3><p>{d.providerStatement ?? 'None.'}</p></div>
+        </div>
+      </section>
       <h2>Thread</h2>
-      {!job.messages.length && <p>No messages.</p>}
-      {job.messages.map((m) => (
-        <p key={m.id}><strong>{m.by === 'client' ? 'Client' : 'Pro'}</strong> · {m.createdAt.toISOString().slice(0, 16).replace('T', ' ')} UTC<br />{m.body}</p>
-      ))}
+      <div className="thread">
+        {!job.messages.length && <p className="hint">No messages.</p>}
+        {job.messages.map((m) => (
+          <p key={m.id} className={m.by === 'provider' ? 'msg mine' : 'msg'}>
+            <span>{m.by === 'client' ? job.client.email : job.org.name} · {when(m.createdAt)}</span>
+            {m.body}
+          </p>
+        ))}
+      </div>
     </main>
   );
 }

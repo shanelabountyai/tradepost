@@ -2,80 +2,119 @@ import { now } from '@/core/clock';
 import { ActionForm } from '@/core/ui/action-form';
 import type { JobStatus, Party } from '@/generated/prisma/enums';
 import { REVIEW_WINDOW_MS } from '@/lib/reviews';
+import { $, day, ENDED, when } from './card';
 
-// The dispute and review blocks, shared by the client's /jobs and the provider's /o/[org]/jobs.
+// The dispute, review and thread panels, shared by the client's /jobs and the provider's /o/[org]/jobs.
 type Act = (form: FormData) => Promise<unknown>;
 type Review = { by: Party; stars: number; body: string; publishedAt: Date | null };
-const day = (d: Date) => d.toISOString().slice(0, 10);
 
 /** P0-6: open a dispute from in progress / completed; while it is open, add or replace a statement. */
-export function DisputePanel({ id, status, open, add }: { id: string; status: JobStatus; open: Act; add: Act }) {
+export function DisputePanel({ id, status, amountCents, open, add }: { id: string; status: JobStatus; amountCents: number; open: Act; add: Act }) {
   if (status !== 'in_progress' && status !== 'completed' && status !== 'disputed') return null;
   const disputed = status === 'disputed';
   return (
     <details>
-      <summary>{disputed ? 'Payment frozen: Tradepost is reviewing the dispute' : 'Report a problem'}</summary>
+      <summary>Dispute <small>{disputed ? 'Open · money frozen' : 'Freezes the money'}</small></summary>
       <ActionForm action={disputed ? add : open}>
         <input type="hidden" name="id" value={id} />
         <label>
-          {disputed ? 'Your statement (replaces any earlier one)' : 'What went wrong?'}{' '}
-          <textarea name="statement" required maxLength={4000} />
+          {disputed ? 'Your statement (replaces any earlier one)' : 'Your statement'}
+          <textarea name="statement" required maxLength={4000} placeholder="What was agreed, and what went wrong?" />
         </label>
-        <p>Only Tradepost staff read statements.</p>
-        <button type="submit">{disputed ? 'Save statement' : 'Open a dispute (freezes payment)'}</button>
+        <p className="hint">
+          {disputed
+            ? 'Only Tradepost staff read statements. The admin can decide without one.'
+            : `Opening a dispute freezes the ${$(amountCents)}. An admin reads both statements and the thread, then returns or splits the money. Only Tradepost staff read statements.`}
+        </p>
+        <button type="submit" className="danger">{disputed ? 'Save statement' : 'Open a dispute'}</button>
       </ActionForm>
     </details>
   );
 }
 
-/** P0-5: the caller's own review, the other side's once published, and the form while the window is open. */
-export function ReviewPanel({ id, status, closedAt, visible, party, review }: {
-  id: string; status: JobStatus; closedAt: Date | null; visible: Review[]; party: Party; review: Act;
+const starsOf = (n: number) => `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
+
+/** P0-5: the caller's own review, the other side's once published, and the form while the window is open. Blind. */
+export function ReviewPanel({ id, status, closedAt, visible, party, other, review }: {
+  id: string; status: JobStatus; closedAt: Date | null; visible: Review[]; party: Party; other: string; review: Act;
 }) {
-  if (status !== 'closed' || !closedAt) return null;
+  if (status !== 'closed' || !closedAt) {
+    if (status === 'declined' || status === 'cancelled') return null;
+    return (
+      <details>
+        <summary>Review <small>After the job closes</small></summary>
+        <p className="hint">You can review {other} once the job closes. Reviews are blind: neither side sees the other&apos;s until both are in, or 14 days pass.</p>
+      </details>
+    );
+  }
   const mine = visible.find((r) => r.by === party);
   const theirs = visible.find((r) => r.by !== party);
   const ends = new Date(closedAt.getTime() + REVIEW_WINDOW_MS);
-  const show = (r: Review) => `${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}${r.body ? ` "${r.body}"` : ''}`;
-  return (
-    <div>
-      {mine && <p>Your review: {show(mine)} {mine.publishedAt ? '(published)' : `(hidden until they review, or ${day(ends)})`}</p>}
-      {theirs && <p>Their review: {show(theirs)}</p>}
-      {!mine && now() < ends && (
-        <ActionForm action={review}>
-          <input type="hidden" name="id" value={id} />
-          <label>
-            Rating{' '}
-            <select name="stars" defaultValue="5">
-              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>{' '}
-          <label>Review <textarea name="body" maxLength={2000} /></label>
-          <p>Neither side sees the other&apos;s review until both are in, or until {day(ends)}.</p>
-          <button type="submit">Submit review</button>
-        </ActionForm>
-      )}
+  const quote = (who: string, r: Review) => (
+    <div className="quote">
+      <h3>{who}</h3>
+      <span className="rated" aria-label={`${r.stars} of 5 stars`}>{starsOf(r.stars)}</span>
+      {r.body && <p>{r.body}</p>}
     </div>
+  );
+  const open = now() < ends;
+  const meta = theirs ? 'Published' : mine ? 'Waiting on theirs' : open ? 'Blind until both are in' : 'Window closed';
+  return (
+    <details open={!mine && open}>
+      <summary>Review <small>{meta}</small></summary>
+      <div className="thread">
+        {mine && quote('Your review', mine)}
+        {theirs && quote(`${other}’s review`, theirs)}
+        {mine && !theirs && <p className="hint">You&apos;ve reviewed. Theirs appears when they submit, or on {day(ends)}. Yours stays hidden from them until then.</p>}
+        {mine && theirs && <p className="hint">Both reviews are published.</p>}
+        {!mine && !open && <p className="hint">The 14-day review window closed on {day(ends)}.</p>}
+        {!mine && open && (
+          <ActionForm action={review}>
+            <input type="hidden" name="id" value={id} />
+            <fieldset className="stars">
+              <legend>Rating</legend>
+              {[5, 4, 3, 2, 1].map((n) => (
+                <label key={n} aria-label={`${n} star${n > 1 ? 's' : ''}`}>
+                  <input type="radio" name="stars" value={n} required />★
+                </label>
+              ))}
+            </fieldset>
+            <label>What was it like? <textarea name="body" maxLength={2000} rows={2} /></label>
+            <p className="hint">Blind review. {other} sees yours only after they submit theirs, or on {day(ends)}.</p>
+            <button type="submit" className="secondary">Submit review</button>
+          </ActionForm>
+        )}
+      </div>
+    </details>
   );
 }
 
 type Message = { id: string; by: Party; body: string; createdAt: Date };
-const at = (d: Date) => d.toISOString().slice(0, 16).replace('T', ' ');
 
 /** P0-7: the job's thread with the other party, and the form to add to it. Open while there is anything to read. */
-export function ThreadPanel({ id, messages, party, send }: { id: string; messages: Message[]; party: Party; send: Act }) {
+export function ThreadPanel({ id, status, messages, party, other, send }: {
+  id: string; status: JobStatus; messages: Message[]; party: Party; other: string; send: Act;
+}) {
+  const over = ENDED.includes(status);
+  const n = messages.length;
   return (
-    <details open={messages.length > 0}>
-      <summary>Messages ({messages.length})</summary>
-      {messages.map((m) => (
-        <p key={m.id}><strong>{m.by === party ? 'You' : m.by === 'client' ? 'Client' : 'Pro'}</strong> · {at(m.createdAt)} UTC<br />{m.body}</p>
-      ))}
-      <ActionForm action={send}>
-        <input type="hidden" name="id" value={id} />
-        <label>Message <textarea name="body" required maxLength={4000} /></label>{' '}
-        <button type="submit">Send</button>
-        <p>If this job is disputed, Tradepost staff can read this thread.</p>
-      </ActionForm>
+    <details open={n > 0 && !over}>
+      <summary>Messages <small>{n} message{n === 1 ? '' : 's'}{over && ' · job over'}</small></summary>
+      <div className="thread">
+        {over && <p className="ended"><span aria-hidden="true">— </span>This job {status === 'closed' ? 'is closed' : `was ${status}`}. Messages are kept for the record.</p>}
+        {messages.map((m) => (
+          <p key={m.id} className={m.by === party ? 'msg mine' : 'msg'}>
+            <span>{m.by === party ? 'You' : other} · {when(m.createdAt)}</span>
+            {m.body}
+          </p>
+        ))}
+        <ActionForm action={send}>
+          <input type="hidden" name="id" value={id} />
+          <label>Message <textarea name="body" required maxLength={4000} rows={2} placeholder={`Write to ${other}`} /></label>
+          <button type="submit" className="secondary">Send</button>
+          <p className="hint">New messages appear every few seconds. If this job is disputed, Tradepost staff can read this thread.</p>
+        </ActionForm>
+      </div>
     </details>
   );
 }
