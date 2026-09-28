@@ -269,3 +269,21 @@ org pages have two navs (Main and Business). `e2e/demo.spec.ts` and `e2e/onboard
 and is not caused by this pass. The other five specs pass (9 tests).
 **Fixed 2026-09-28:** the spec runs `npm run seed:demo:test` as a child process instead of importing the seed, and
 now names the Brightline owner (it still named the template's Acme org). Full `npm run test:e2e`: 10/10 passed.
+
+## D-012 — foundation v1.0.2 + v1.0.3 merged; provider deletion refused before the subscription is cancelled (2026-09-28)
+
+**Merged:** `v1.0.2` (FR-01, outbox send outside the claim transaction) and `v1.0.3` (FR-02..05). Only `NEXT.md`
+conflicted, and ours was kept. Migration `20260927000000_billing_subscription_id` is applied to local dev and test.
+Nothing is deployed, so there is no production database to migrate. `src/app/cron-jobs.ts` calls `drainOutbox`
+unwrapped, so FR-01 needed no clone change. There is no custom `PaymentProvider`.
+
+**Found:** FR-05's new `beforeOrgDelete` cancels the Stripe subscription, and only then does the org row get deleted. A
+provider with jobs cannot be deleted (D-004: the ledger is Restrict and append-only). So for that provider the delete
+failed *after* the cancel: the org stayed, but it was no longer billed. The clone-owned `src/app/org-hooks.ts` now
+refuses first, through `providerDb`, if the provider has any job. `tests/integration/org-delete.test.ts` asserts the
+refusal, that `cancel` is never called, and that the org remains. It fails with the guard removed.
+
+**Upstream bug:** neither tag bumped `FOUNDATION_VERSION`, so `foundation:drift` compared against v1.0.1 and reported
+every upstream change as clone drift. The clone sets it to `v1.0.3`, and that is recorded in `FOUNDATION_PATCHES.md`.
+
+**Gate:** lint, typecheck and drift are clean. `npm test` passes 186/186. `npm run test:e2e` passes 10/10.
