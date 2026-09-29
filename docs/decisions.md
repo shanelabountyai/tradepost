@@ -609,3 +609,42 @@ to layer in later (`job.date - now()` at the `cancel` call site) if a real notic
 both actors, and an integration case asserting the 20%/80% split lands when the client cancels; the old
 "either side, refunds the whole hold" test was split into a provider-cancel case, unchanged, and the new
 client-cancel case). `npm run test:e2e` 10/10 (no e2e spec exercises cancellation; none needed updating).
+
+## D-023 — saved searches + new-match notifications (2026-09-29)
+
+The last PRD P1 item (F-20): a client saves a search from `/search`; a cron pass emails them once a new
+listing shows up that matches it. No in-app feed, no dedicated read model — the outbox email is the whole
+delivery surface, per the PRD's "outbox stub" phrasing.
+
+- **New table, deliberately outside tenancy.ts.** `SavedSearch` is `userId`-owned, not provider-owned, so
+  it isn't in `tests/unit/tenancy-lint.test.ts`'s `MODELS` list — same treatment as `OrgContact` (D-021):
+  every query is scoped by the caller's own `userId`, never a foreign id, so there is nothing for the lint
+  to catch. `src/lib/saved-searches.ts` reads and writes it directly. The one raw `listing` read the
+  matcher needs (new listings by category, across providers) went into `src/lib/tenancy.ts` as
+  `listingsSince`, same shape as the existing `searchableListings` — the lint scopes `listing` itself, not
+  who's asking.
+- **`checkedAt`, not a notified-listings join table.** Matching looks at listings created after the saved
+  search's `checkedAt` and advances it to `now()` every cron pass, match or not. One email per pass covers
+  however many new listings matched (subject line pluralizes), and a listing is never re-notified — the
+  lazy version of "already notified" tracking, one timestamp instead of a join table. A search's own
+  `createdAt` seeds `checkedAt`, so a brand-new search never fires on listings that already existed (no
+  backfill blast on save).
+- **Radius and rating reuse `haversineMiles` from `src/lib/search.ts`** and the same "unrated = 0" rule
+  `rankListings` already uses — a `minRating > 0` search simply won't match a listing whose provider has no
+  `ProviderRating` row yet. No new ranking logic; the matcher filters, it doesn't rank (order doesn't matter
+  for a notification).
+- **`core.prisma`'s `User` model gets `savedSearches SavedSearch[] // app`** — the established pattern
+  (`jobsAsClient`, `listings`, `jobs`, `rating`, `contact` already do this) for a clone's back-relation into
+  a template-owned model; `foundation-drift.ts`'s `m === 'app'` marker excuses it (D-13).
+- **`tests/fixtures/app.ts` seeds one `savedSearch` row** owned by the fixture org's own user, so
+  `ref('savedSearch')` is drivable by the INV-01..04 harness like any other clone model.
+
+**Not done:** no in-app "your matches" list — only the email. No unsave-and-resave dedup beyond the
+`checkedAt` watermark (deleting and recreating a search re-checks only listings newer than the new
+`createdAt`, so nothing re-fires on old ones either). No geocoded address entry for a saved search — same
+lat/lng-only limit `/search` itself has (D-020 added geocoding to the listing form only).
+
+**Gate:** lint (0 errors, same pre-existing upstream warning), typecheck, drift and `check-modules` clean.
+`npm test` 227/227 (4 new in `tests/integration/saved-searches.test.ts`: save/delete with cross-user 404,
+a match-and-never-again cron case, a radius/rating skip case, and a no-backfill-on-save case).
+`npm run test:e2e` 10/10 (no e2e spec exercises search or saved searches; none needed updating).

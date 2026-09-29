@@ -20,6 +20,7 @@ export async function SiteHeader() {
     <>
       <NavLink href="/search">Find a pro</NavLink>
       {s && <NavLink href="/jobs">Your bookings</NavLink>}
+      {s && <NavLink href="/searches">Saved searches</NavLink>}
       {orgs.map(({ org }) => <NavLink key={org.slug} href={`/o/${org.slug}/jobs`} match={`/o/${org.slug}`}>{org.name}</NavLink>)}
       {admin && <NavLink href="/admin/disputes" match="/admin">Admin</NavLink>}
       {s && <NavLink href="/account/security" match="/account">Account</NavLink>}

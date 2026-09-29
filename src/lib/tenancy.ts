@@ -82,6 +82,20 @@ export function searchableListings(q: { category: ServiceCategory; weekday: numb
 }
 
 /**
+ * Public and read-only (P1, F-20): every listing in one category created since a cutoff, across
+ * providers, for the saved-search matcher (cron). Same un-tenanted shape as searchableListings.
+ */
+export function listingsSince(category: ServiceCategory, since: Date) {
+  return db.listing.findMany({
+    where: { category, createdAt: { gt: since } },
+    select: {
+      id: true, title: true, lat: true, lng: true, radiusMiles: true,
+      org: { select: { name: true, rating: { select: { count: true, sum: true } } } },
+    },
+  });
+}
+
+/**
  * A client's own jobs: every query is `clientId = s.userId`. A separate path from providerDb, so a
  * dual-role user's two views never share a filter (PRD P0-1).
  */

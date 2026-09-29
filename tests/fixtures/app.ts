@@ -14,5 +14,7 @@ export async function seedApp(org: { orgId: string; userId: string }, key: 'a' |
   const listing = await db.listing.create({ data: { ...LISTING, id: id(50), orgId: org.orgId, title: `Listing ${key}` } });
   // The actor is also the job's client (dual-role), so both the provider's and the client's job actions are drivable.
   const job = await db.job.create({ data: { ...JOB, id: id(51), orgId: org.orgId, listingId: listing.id, clientId: org.userId } });
-  return { listing: listing.id, job: job.id };
+  // savedSearch is userId-owned (F-20), not org-owned; the actor is also the org's owner, so it fits the same key.
+  const savedSearch = await db.savedSearch.create({ data: { id: id(52), userId: org.userId, category: 'plumbing', lat: LISTING.lat, lng: LISTING.lng } });
+  return { listing: listing.id, job: job.id, savedSearch: savedSearch.id };
 }

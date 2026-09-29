@@ -33,6 +33,25 @@ enum ServiceCategory {
   landscaping
 }
 
+// P1 (F-20): a client's saved search. Kept out of tenancy.ts's MODELS list on purpose, like
+// OrgContact below — every query is `userId`-scoped by the caller, never a foreign id. Matching
+// (matchNewSavedSearches, cron) looks only at listings created after `checkedAt` and advances it
+// each pass, so the same new listing is never notified twice.
+model SavedSearch {
+  id        String          @id @default(uuid()) @db.Uuid
+  userId    String          @db.Uuid
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  ServiceCategory
+  lat       Float
+  lng       Float
+  minRating Float           @default(0)
+  createdAt DateTime        @default(now()) @db.Timestamptz(6)
+  checkedAt DateTime        @default(now()) @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([category])
+}
+
 // A provider's SMS contact number (D-021), same shape as BillingAccount: one row per org, keyed and
 // read/written by ctx.orgId only (never a foreign id), so it needs no tenancy.ts scoping.
 model OrgContact {

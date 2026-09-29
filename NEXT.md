@@ -1,14 +1,15 @@
 # NEXT
 
 Queue, in order:
-0. **This item — D-022, cancellation-fee policy tied to lifecycle state: done.** Details in
-   `docs/decisions.md`. A client cancelling an accepted job now keeps a 20% cancellation fee for the
-   provider (split through the normal release+platform-fee logic); a provider cancelling still refunds
-   in full. Gate: lint/typecheck/drift/check-modules clean, `npm test` 223/223, `npm run test:e2e` 10/10.
-1. **Next up — two PRD P1 items remain unbuilt:** saved searches + new-match notifications (outbox
-   stub, F-20), and an admin moderation queue for reported reviews (F-16). Provider earnings (D-018) and
-   cancellation fees (D-022) are the only two P1 items done from the PRD's original four. Pick one, or
-   ask Shane which.
+0. **This item — D-023, saved searches + new-match notifications: done.** Details in `docs/decisions.md`.
+   A client saves a search from `/search` (`/searches` lists and removes them); a cron pass
+   (`matchNewSavedSearches` in `src/lib/saved-searches.ts`, wired into `src/app/cron-jobs.ts`) emails once
+   per pass when a new listing matches, via the existing outbox. Gate: lint/typecheck/drift/check-modules
+   clean, `npm test` 227/227, `npm run test:e2e` 10/10.
+1. **Next up — one PRD P1 item remains unbuilt: admin moderation queue for reported reviews (F-16).**
+   Provider earnings (D-018), cancellation fees (D-022) and saved searches (D-023) are the three P1 items
+   done from the PRD's original four; F-16 is the last one. After it, all four P1 nice-to-haves are done
+   and the project is back to closure-deliverable maintenance only (see docs/RELEASE_NOTES.md).
 
 **Upstream candidates** (raise when the foundation repo is next open): the `requireOrg` 404 patch (in
 `FOUNDATION_PATCHES.md`). Also: let a clone list its own module-dependent tests for

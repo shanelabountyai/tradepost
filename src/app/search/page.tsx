@@ -2,6 +2,7 @@ import { z } from 'zod';
 import Link from 'next/link';
 import { requestJob } from '@/app/jobs/actions';
 import { $, day, Pill, projected, shortId } from '@/app/jobs/card';
+import { saveSearch } from '@/app/searches/actions';
 import { currentSession } from '@/core/auth/session';
 import { now } from '@/core/clock';
 import { ActionForm } from '@/core/ui/action-form';
@@ -67,6 +68,16 @@ export default async function Search({ searchParams }: { searchParams: Promise<R
         </label>
         <button type="submit">Search</button>
       </form>
+
+      {q.success && s && (
+        <ActionForm action={saveSearch}>
+          <input type="hidden" name="category" value={q.data.category} />
+          <input type="hidden" name="lat" value={q.data.lat} />
+          <input type="hidden" name="lng" value={q.data.lng} />
+          <input type="hidden" name="minRating" value={q.data.minRating} />
+          <button type="submit" className="secondary">Save this search — email me new matches</button>
+        </ActionForm>
+      )}
 
       {results && (results.length ? (
         <ol className="results">
