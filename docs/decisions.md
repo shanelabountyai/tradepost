@@ -681,3 +681,34 @@ the panels.
 `tests/integration/review-moderation.test.ts`; `jobs.test.ts`'s provider-action list gained
 `reportReviewOfUs`). `npm run test:e2e` 10/10 (no e2e spec exercises reviews or `/admin`; the production
 build compiles both new surfaces, but they were not click-tested in a browser).
+
+## D-025 — closure docs refreshed for the four P1 features; `/admin/reviews` click-tested (2026-09-29)
+
+D-024 left two things open: `/admin/reviews` had never been driven in a real browser, and `docs/DEMO.md` /
+the exec brief still described the app as it stood after D-017 (P0 only, 212 tests).
+
+- **`/admin/reviews` click-tested end to end** against the seeded database: reported job 1's review as
+  `client@tradepost.demo.test`, signed in as `ops@tradepost.demo.test`, resolved it with **Keep it up**, and
+  confirmed the queue returned to "No reported reviews." No code changed — this was verification, not a fix.
+- **`docs/DEMO.md`:** added stops 2a (save a search), 3a (earnings), 3b (cancel after acceptance, either
+  side), and 6a (report and moderate a review), each run against the live app before being written down.
+  Updated the test count (212 → 232), the troubleshooting table, and the concede-before-you're-asked list —
+  "no provider earnings screens" and "there is no geocoder" were both stale (D-018, D-020).
+  `/saved-searches` doesn't exist; the real route is `/searches` (`src/app/searches/page.tsx`) — corrected
+  before it made it into the doc.
+  **Note for next time:** the first `npm test` run this session raced against concurrent sweeps from other,
+  unrelated project sessions and threw 3 failures in `tests/invariants/inv-12-webhooks.test.ts` (500 where
+  200 was expected). A clean re-run alone passed 232/232 — read as connection/lock contention from the
+  overlapping sweeps, not a Tradepost regression, per the standing "cap the connection pool per project"
+  guidance. Always re-run clean before trusting a red result if other project sweeps were running.
+- **Exec brief** (`https://claude.ai/artifact/C5N7FvEoizZszzzszTLc2Q`, now v3): removed "provider earnings
+  screens" from the "chose not to build" list (D-018 built it), reworded the geocoding caveat to reflect
+  that the listing form now geocodes an address while `/search` itself still takes typed coordinates
+  (D-020), updated the test count, and added capability-table rows for the review-report path, the
+  cancellation fee, the earnings dashboard and saved searches.
+
+**Not done:** no equivalent refresh of the LinkedIn draft queue (Lab Intelligence Ledger) — the four P1
+features are candidate material but weren't turned into drafts this session.
+
+**Gate:** lint (0 errors, same pre-existing upstream warning), typecheck clean. `npm test` 232/232 (no new
+tests — doc-only). `npm run test:e2e` 10/10.
