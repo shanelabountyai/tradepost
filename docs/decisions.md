@@ -574,3 +574,38 @@ covers the actual need (SMS for job/message notifications) without touching eith
 `npm test` 221/221 (3 new: `tests/integration/contact.test.ts`, plus one added to the `notifications` describe
 in `tests/integration/jobs.test.ts` asserting both an email and an SMS row land in the outbox when a contact
 number is set). `npm run test:e2e` 10/10 (no e2e spec exercises org settings; none needed updating).
+
+## D-022 — cancellation-fee policy tied to lifecycle state (2026-09-29)
+
+The last PRD P1 item (F-17). D-004 had already noted "fees are P1" directly on the `cancel` transition
+(`accepted → cancelled`, either party) — the only cancel that has money on hold, since `withdraw`
+(`requested → cancelled`) holds nothing yet.
+
+- **Tied to lifecycle state means: who caused the cancellation, at the state where money is already
+  held.** A provider backing out after accepting still refunds the client in full — the client did
+  nothing wrong. A client backing out after the provider has reserved the slot now keeps a 20%
+  cancellation fee (`CANCELLATION_FEE_BPS` in `src/lib/jobs.ts`) as compensation to the provider, split
+  through the same release+platform-fee logic as a normal payout — the platform still takes its usual
+  10% cut on the compensated portion, nothing new. `in_progress` still cannot be cancelled at all (D-004:
+  "that is a dispute"); this item did not touch that boundary.
+- **`ledgerRows(money, amountCents, refundCents, cancelledBy)`:** the `'cancel'` money kind is a thin
+  wrapper — `cancelledBy !== 'client'` is a plain refund row; `cancelledBy === 'client'` computes the 20%
+  compensation and recurses into `ledgerRows('release', compensation)`, the exact pattern `'split'` already
+  used for a dispute's released remainder. No new ledger-row-shape code, so `src/app/jobs/card.tsx`'s
+  `Money` component needed **zero changes** — its existing `paid && back` branch (written for dispute
+  splits) already reads a refund+release+fee row set correctly, whoever produced it.
+  `transition()` now passes its own `by` into `ledgerRows` as `cancelledBy`.
+- **`src/app/jobs/card.tsx`:** added `projectedCancel(amountCents)`, alongside the existing `projected()`,
+  so the client's Cancel button can show the real refund/fee split before they click, not just "full
+  refund" (which was no longer true). The provider's Cancel button text ("Cancel and refund") needed no
+  change — provider-initiated cancellation is still a full refund.
+
+**Not done:** no distinct fee tier for cancelling close to the job date vs. far out — the policy is state-
+tied (accepted, by whom), not time-tied; the PRD's phrase is "lifecycle state," not "notice period." Easy
+to layer in later (`job.date - now()` at the `cancel` call site) if a real notice-period policy is wanted.
+
+**Gate:** lint (0 errors, same pre-existing upstream warning), typecheck, drift and `check-modules` clean.
+`npm test` 223/223 (2 new in `tests/integration/jobs.test.ts`: a pure `ledgerRows('cancel', ...)` case for
+both actors, and an integration case asserting the 20%/80% split lands when the client cancels; the old
+"either side, refunds the whole hold" test was split into a provider-cancel case, unchanged, and the new
+client-cancel case). `npm run test:e2e` 10/10 (no e2e spec exercises cancellation; none needed updating).

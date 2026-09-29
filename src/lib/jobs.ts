@@ -11,13 +11,16 @@ import { dueForAutoConfirm, inProviderTx, providerDb } from '@/lib/tenancy';
 // state cannot disagree.
 
 export type Actor = 'client' | 'provider' | 'system' | 'admin';
-type Money = 'hold' | 'release' | 'refund' | 'split' | null;
+type Money = 'hold' | 'release' | 'refund' | 'split' | 'cancel' | null;
 
 export const TRANSITIONS = {
   accept: { by: ['provider'], from: 'requested', to: 'accepted', money: 'hold' },
   decline: { by: ['provider'], from: 'requested', to: 'declined', money: null }, // nothing was held
   withdraw: { by: ['client'], from: 'requested', to: 'cancelled', money: null },
-  cancel: { by: ['client', 'provider'], from: 'accepted', to: 'cancelled', money: 'refund' }, // full refund; fees are P1
+  // A provider backing out refunds the client in full. A client backing out after the provider has
+  // held the slot compensates the provider (P1: cancellation-fee policy), same release+fee split as
+  // a normal payout, on the CANCELLATION_FEE_BPS share; the rest is refunded.
+  cancel: { by: ['client', 'provider'], from: 'accepted', to: 'cancelled', money: 'cancel' },
   start: { by: ['provider'], from: 'accepted', to: 'in_progress', money: null },
   complete: { by: ['provider'], from: 'in_progress', to: 'completed', money: null },
   // Release: the client's confirmation, or the 72h auto-confirm. Never the provider.
@@ -33,15 +36,23 @@ export type Transition = keyof typeof TRANSITIONS;
 
 export const AUTO_CONFIRM_MS = 72 * 3_600_000;
 export const PLATFORM_FEE_BPS = 1000; // 10%, taken at release
+export const CANCELLATION_FEE_BPS = 2000; // 20% of the hold compensates the provider when the client cancels
 
 /**
  * The ledger rows one move writes. The fee rounds down, and the provider gets the rest, so the rows sum exactly.
  * A split refunds `refundCents` and releases the remainder; the fee is taken only on what is released.
+ * A cancel refunds the client in full unless `cancelledBy` is 'client', in which case CANCELLATION_FEE_BPS
+ * of the hold is released to the provider (through the normal release+platform-fee split) instead of refunded.
  */
-export function ledgerRows(money: Money, amountCents: number, refundCents = 0): { kind: LedgerKind; amountCents: number }[] {
+export function ledgerRows(money: Money, amountCents: number, refundCents = 0, cancelledBy?: Actor): { kind: LedgerKind; amountCents: number }[] {
   if (money === 'split') {
     if (!Number.isInteger(refundCents) || refundCents < 0 || refundCents > amountCents) throw new Refused('The refund must be between $0 and the amount held.');
     return [...(refundCents ? [{ kind: 'refund' as const, amountCents: refundCents }] : []), ...ledgerRows('release', amountCents - refundCents)];
+  }
+  if (money === 'cancel') {
+    if (cancelledBy !== 'client') return [{ kind: 'refund', amountCents }];
+    const compensation = Math.floor((amountCents * CANCELLATION_FEE_BPS) / 10_000);
+    return [...(amountCents - compensation ? [{ kind: 'refund' as const, amountCents: amountCents - compensation }] : []), ...ledgerRows('release', compensation)];
   }
   if (money === 'hold' || money === 'refund') return [{ kind: money, amountCents }];
   if (money !== 'release') return [];
@@ -75,7 +86,7 @@ export async function transition(jobs: Jobs, id: string, name: Transition, by: A
   if (!job) notFound();
   if (!([t.from].flat() as JobStatus[]).includes(job.status)) throw new Refused(`That step is not open while the job is ${job.status.replace('_', ' ')}.`);
   const at = now();
-  const rows = ledgerRows(t.money, job.amountCents, opts.refundCents);
+  const rows = ledgerRows(t.money, job.amountCents, opts.refundCents, by);
   await jobs
     .update({
       where: { id, status: job.status },

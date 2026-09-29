@@ -67,6 +67,15 @@ describe('ledger rows (pure)', () => {
     expect(ledgerRows(null, 8500)).toEqual([]);
   });
 
+  it('cancel refunds in full unless the client cancelled, which keeps a 20% provider-compensation fee', () => {
+    expect(ledgerRows('cancel', 8500, 0, 'provider')).toEqual([{ kind: 'refund', amountCents: 8500 }]);
+    expect(ledgerRows('cancel', 8500)).toEqual([{ kind: 'refund', amountCents: 8500 }]); // no actor: same as provider
+    expect(ledgerRows('cancel', 8500, 0, 'client')).toEqual([
+      { kind: 'refund', amountCents: 6800 }, { kind: 'release', amountCents: 1530 }, { kind: 'fee', amountCents: 170 },
+    ]);
+    expect(ledgerRows('cancel', 8500, 0, 'client').reduce((s, r) => s + r.amountCents, 0)).toBe(8500);
+  });
+
   it('no provider transition releases money', () => {
     const releasers = Object.entries(TRANSITIONS).filter(([, t]) => t.money === 'release');
     expect(releasers.map(([n, t]) => [n, t.by])).toEqual([['confirm', ['client']], ['autoConfirm', ['system']]]);
@@ -92,10 +101,17 @@ describe('lifecycle', () => {
     expect((await db.job.findUniqueOrThrow({ where: { id: j2.id } })).status).toBe('cancelled');
   });
 
-  it('a cancel after acceptance, by either side, refunds the whole hold', async () => {
+  it('a provider cancelling after acceptance refunds the client in full', async () => {
     await run('accept');
     await transition(P.pro, P.j.id, 'cancel', 'provider');
     expect(await ledger()).toEqual([['hold', 8500], ['refund', 8500]]);
+  });
+
+  it('a client cancelling after acceptance keeps a 20% cancellation fee for the provider (P1)', async () => {
+    await run('accept');
+    await transition(P.cli, P.j.id, 'cancel', 'client');
+    // 20% of 8500 = 1700 compensates the provider, split by the normal 10% platform fee; the rest refunds.
+    expect(await ledger()).toEqual([['hold', 8500], ['release', 1530], ['fee', 170], ['refund', 6800]]);
   });
 
   it('refuses a step from the wrong state, and moves nothing', async () => {

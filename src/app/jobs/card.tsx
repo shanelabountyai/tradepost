@@ -36,6 +36,12 @@ export function projected(amountCents: number) {
   return { net, fee: amountCents - net };
 }
 
+/** What a client gets back, and what the cancellation fee keeps, if they cancel an accepted job now. */
+export function projectedCancel(amountCents: number) {
+  const refund = ledgerRows('cancel', amountCents, 0, 'client').find((r) => r.kind === 'refund')?.amountCents ?? 0;
+  return { refund, kept: amountCents - refund };
+}
+
 type Row = { kind: LedgerKind; amountCents: number };
 
 /** The escrow box: where the money is now (three cells) and the fee sentence under it. */

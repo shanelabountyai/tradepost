@@ -5,7 +5,7 @@ import { AUTO_CONFIRM_MS } from '@/lib/jobs';
 import { clientDb, reviewsVisibleTo } from '@/lib/tenancy';
 import { THREAD } from '@/lib/threads';
 import { addStatement, cancelJob, confirmJob, disputeJob, reviewPro, sendMessage, withdrawJob } from './actions';
-import { $, day, family, Money, nextMove, Pill, projected, shortId } from './card';
+import { $, day, family, Money, nextMove, Pill, projected, projectedCancel, shortId } from './card';
 import { DisputePanel, ReviewPanel, ThreadPanel } from './panels';
 import { Poll } from './poll';
 
@@ -49,7 +49,7 @@ export default async function Bookings() {
             <p><strong>{lead}</strong> {text}</p>
             <div className="actions">
               {j.status === 'requested' && move(withdrawJob, 'Withdraw request', 'secondary')}
-              {j.status === 'accepted' && move(cancelJob, 'Cancel (full refund)', 'secondary')}
+              {j.status === 'accepted' && move(cancelJob, <>Cancel<small>{$(projectedCancel(j.amountCents).refund)} refunded, {$(projectedCancel(j.amountCents).kept)} cancellation fee</small></>, 'secondary')}
               {j.status === 'completed' && move(confirmJob, <>Confirm the work is done<small>Releases {$(projected(j.amountCents).net)} to the pro</small></>)}
               {j.status === 'declined' && <Link className="button secondary" href="/search">Find another pro</Link>}
             </div>
