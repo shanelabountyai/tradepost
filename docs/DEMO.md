@@ -5,6 +5,8 @@ confirmed; disputes go to a platform admin. Runs locally on **:4200**. It is not
 
 Every command and screen below was run against the seeded database on 2026-09-26, and every command was re-run
 clean on 2026-09-28 against `v1.2.0` (D-016): health check, `/demo`, `npm test` (212/212), lint, typecheck and drift.
+The four P1 screens below (stops 2a, 3a, 5a, 6a) were added 2026-09-29 after D-018/D-022/D-023/D-024 and
+click-tested in a live browser against the seeded database that day; `npm test` is 232/232 as of D-024.
 
 ## Setup (once, about 2 minutes)
 
@@ -55,11 +57,35 @@ Click **Request** on *Leak repair & fixture installs*. It appears in `/jobs` as 
 
 Say: "Search ranks by distance and rating. Location is typed lat/lng for now."
 
+### 2a. Save the search (client)
+Still on `/search` with results showing, click **Save this search — email me new matches**, then go to
+`/searches`. The saved search is listed; a cron pass emails the client once a new listing matches it — no
+in-app feed, the email is the whole delivery surface.
+
+Say: "One timestamp per search, not a join table of what's already been notified — the lazy version that
+still never double-emails."
+
 ### 3. Provider accepts and works it (Brightline owner)
-Sign in as `owner@brightline.demo.test`, go to `/o/brightline/jobs`. Click **Accept**: the $185.00 is now held
-by Tradepost. Then **Start**, then **Mark complete**.
+Sign in as `owner@brightline.demo.test`. The org home at `/o/brightline` leads with **needs-action count,
+active listings, and money held in escrow** — not the template's placeholder. Go to `/o/brightline/jobs`.
+Click **Accept**: the $185.00 is now held by Tradepost. Then **Start**, then **Mark complete**.
 
 Say: "The provider can never release funds. Only the client's confirmation, or the 72-hour auto-confirm, can."
+
+### 3a. Earnings (Brightline owner)
+Go to `/o/brightline/earnings`: held in escrow, paid out to date, and service fees taken, read straight off
+the same ledger the job cards use — no separate running total to drift out of sync.
+
+### 3b. Cancel after acceptance, instead of Start (either side)
+Book a second job the same way as stop 2, then accept it as the Brightline owner (stop 3), but click
+**Cancel** instead of Start:
+- **Provider cancels:** full refund to the client — the client did nothing wrong.
+- **Client cancels:** the client's Cancel button now shows the real split before they click — 80% refunded,
+  20% kept as a cancellation fee that pays the provider for the reserved slot (the platform still takes its
+  usual 10% cut on that portion).
+
+Say: "Tied to lifecycle state, not a notice period — who caused the cancellation, at the point money is
+already held."
 
 ### 4. Client confirms, or disputes
 Back as the client at `/jobs`, on the completed job:
@@ -82,6 +108,15 @@ is audit-logged too.
 On a closed job, submit the client review. The provider's page shows nothing of it until they submit theirs or
 14 days pass. Once both are in, each sees the other's.
 
+### 6a. Report and moderate a review (client, then ops)
+On job 1 from stop 1 (confirmed, both reviews published) in `/jobs`, open the **Review** panel, then **Report this review**,
+give a reason, **Send report**. Sign in as `ops@tradepost.demo.test` and go to `/admin/reviews`: the review
+text and the report reason side by side, **Remove the review** or **Keep it up**.
+
+Say: "Only a published review can be reported — a report can never confirm an unpublished review exists.
+Removing a client's review takes its stars back out of the pro's rating in the same transaction as the
+audit log entry."
+
 ### 7. Tenant isolation
 As the Brightline owner, open `/o/fernway/jobs`. The answer is a **404**, not a 403: another provider's row does
 not reveal that it exists. As the client, open `/admin/disputes`: also 404.
@@ -89,7 +124,7 @@ not reveal that it exists. As the client, open `/admin/disputes`: also 404.
 ## Proof it holds
 
 ```bash
-npm test          # 212 tests on local Postgres tradepost_test, including the seeded-month invariant
+npm test          # 232 tests on local Postgres tradepost_test, including the seeded-month invariant
 npm run lint && npm run typecheck && npm run foundation:drift
 ```
 
@@ -105,14 +140,20 @@ and asserts every job ends terminal with a balanced ledger.
 | Search shows "Month listing" rows | the month seed ran | fine to demo, or drop and re-create the dev DB and seed without `--month` |
 | Port 4200 in use | a stale server | `lsof -ti :4200 \| xargs kill` |
 | `/admin/disputes` shows nothing | no open dispute | open one at stop 4 |
+| `/admin/reviews` shows nothing | the seeded report already got resolved | run stop 6a to report a review first |
 | Seed script refuses to run | `DATABASE_URL` is not local | point `.env.local` at local Postgres |
 
 ## Concede before you're asked
 
 - **Payments are simulated.** The ledger is real and balanced; no card is charged and no money moves. Nothing in the job flow calls Stripe.
 - **Not deployed.** Local only, demo accounts only.
-- **The 72-hour auto-confirm is proven in tests, not on screen.** It runs from `/api/cron` on the injected clock. Locally `CRON_SECRET` is unset, so the route refuses. To show it, point at the seeded-month test.
-- **The design pass (D-011) covers tokens, type, the job card and the header; there is no geocoder.** Two state machines,
-  the ledger and the guards were the scope, and the ledger overrides the design where the two disagreed.
-- **P1 is cut.** No evidence uploads and no provider payouts.
-- **Reviews and statements read as text only.** Disputes take a written statement, not photos.
+- **The 72-hour auto-confirm and the saved-search match email are proven in tests, not on screen.** Both run
+  from `/api/cron` on the injected clock. Locally `CRON_SECRET` is unset, so the route refuses. To show either,
+  point at the seeded-month test or `tests/integration/saved-searches.test.ts`.
+- **The design pass (D-011) covers tokens, type, the job card and the header.** The listing form geocodes a
+  typed address (D-020); `/search` itself still takes typed lat/lng (D-023 didn't extend geocoding there).
+- **The earnings dashboard is read-only.** It reads the same ledger the job cards do; there is no real payout
+  to a bank account, and no evidence uploads.
+- **Reviews and statements read as text only.** Disputes take a written statement, not photos. A reported
+  review shows the reporter and the reviewed party its outcome only by reappearing (kept) or reading
+  "removed" (hidden) — no separate notification.
