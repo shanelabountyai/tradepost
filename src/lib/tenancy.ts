@@ -1,6 +1,7 @@
 import type { SessionCtx } from '@/core/auth/session';
 import type { OrgCtx } from '@/core/authz/guards';
 import { notFound } from 'next/navigation';
+import { audit } from '@/core/audit';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
 import type { Prisma } from '@/generated/prisma/client';
@@ -171,8 +172,56 @@ export function resolvedDisputes() {
  * published. Spread it into a scoped job query: `include: { ...reviewsVisibleTo('client') }`.
  */
 export const reviewsVisibleTo = (party: 'client' | 'provider') => ({
-  reviews: { where: { OR: [{ by: party }, { publishedAt: { not: null } }] }, select: { by: true, stars: true, body: true, publishedAt: true } },
+  reviews: {
+    where: { OR: [{ by: party }, { publishedAt: { not: null } }] },
+    select: { by: true, stars: true, body: true, publishedAt: true, reportedAt: true, moderatedAt: true, hidden: true },
+  },
 });
+
+/**
+ * D-024 (F-16): the party a published review is about reports it, once. The caller has already found the job
+ * through its own scoped client, so `jobId` is one of its jobs. Returns false when there is nothing to report.
+ */
+export async function reportReview(jobId: string, by: 'client' | 'provider', reason: string) {
+  const r = await db.review.updateMany({
+    where: { jobId, by, publishedAt: { not: null }, hidden: false, reportedAt: null },
+    data: { reportedAt: now(), reportReason: reason },
+  });
+  return r.count > 0;
+}
+
+/** Platform admin (D-024): reported reviews not yet moderated, oldest report first. */
+export function reportedReviews() {
+  return db.review.findMany({
+    where: { reportedAt: { not: null }, moderatedAt: null },
+    orderBy: { reportedAt: 'asc' },
+    select: {
+      id: true, jobId: true, by: true, stars: true, body: true, reportedAt: true, reportReason: true,
+      job: { select: { org: { select: { name: true } }, client: { select: { email: true } }, listing: { select: { title: true } } } },
+    },
+  });
+}
+
+/**
+ * Platform admin (D-024): keeps or hides a reported review, audit-logged in the same transaction. Hiding a
+ * client's review takes its stars back out of the provider's rating. The `moderatedAt: null` guard makes
+ * that happen once, however many admins race. Returns false when the review was not awaiting moderation.
+ */
+export function moderateReview(id: string, adminId: string, hide: boolean) {
+  return db.$transaction(async (tx) => {
+    const r = await tx.review.findUnique({ where: { id }, select: { by: true, stars: true, publishedAt: true, job: { select: { orgId: true } } } });
+    const done = await tx.review.updateMany({
+      where: { id, reportedAt: { not: null }, moderatedAt: null },
+      data: { moderatedAt: now(), moderatedBy: adminId, hidden: hide },
+    });
+    if (!r || !done.count) return false;
+    if (hide && r.by === 'client' && r.publishedAt) {
+      await tx.providerRating.update({ where: { orgId: r.job.orgId }, data: { count: { decrement: 1 }, sum: { decrement: r.stars } } });
+    }
+    await audit({ userId: adminId }, hide ? 'review.hide' : 'review.keep', { targetType: 'review', targetId: id }, tx);
+    return true;
+  });
+}
 
 /**
  * System (P0-5): publishes a job's unpublished reviews, and adds a newly published client review's stars

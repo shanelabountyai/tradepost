@@ -8,7 +8,7 @@ import { db } from '@/core/db';
 import { Refused } from '@/core/errors';
 import { submitStatement, transition, type Transition } from '@/lib/jobs';
 import { notifyProvider } from '@/lib/notify';
-import { submitReview } from '@/lib/reviews';
+import { reportTheirReview, submitReview } from '@/lib/reviews';
 import { weekday } from '@/lib/search';
 import { postMessage } from '@/lib/threads';
 import { bookableListing, clientDb } from '@/lib/tenancy';
@@ -48,6 +48,15 @@ export const reviewPro = userAction(
     redirect('/jobs');
   },
 );
+
+// D-024 (F-16): report the pro's published review of this client to Tradepost moderation.
+const reason = z.string().trim().min(1, 'Say what is wrong with it.').max(1000);
+
+export const reportReviewOfMe = userAction(z.object({ id: ref('job'), reason }), async (s, { id, reason }) => {
+  await reportTheirReview(clientDb(s).job, id, 'client', reason);
+  await audit({ userId: s.userId }, 'review.report', { targetType: 'job', targetId: id });
+  redirect('/jobs');
+});
 
 // P0-7: the job's thread with the pro.
 const message = z.string().trim().min(1, 'Write a message.').max(4000);

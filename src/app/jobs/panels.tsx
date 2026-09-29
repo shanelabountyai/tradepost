@@ -6,7 +6,7 @@ import { $, day, ENDED, when } from './card';
 
 // The dispute, review and thread panels, shared by the client's /jobs and the provider's /o/[org]/jobs.
 type Act = (form: FormData) => Promise<unknown>;
-type Review = { by: Party; stars: number; body: string; publishedAt: Date | null };
+type Review = { by: Party; stars: number; body: string; publishedAt: Date | null; reportedAt: Date | null; moderatedAt: Date | null; hidden: boolean };
 
 /** P0-6: open a dispute from in progress / completed; while it is open, add or replace a statement. */
 export function DisputePanel({ id, status, amountCents, open, add }: { id: string; status: JobStatus; amountCents: number; open: Act; add: Act }) {
@@ -35,8 +35,8 @@ export function DisputePanel({ id, status, amountCents, open, add }: { id: strin
 const starsOf = (n: number) => `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
 
 /** P0-5: the caller's own review, the other side's once published, and the form while the window is open. Blind. */
-export function ReviewPanel({ id, status, closedAt, visible, party, other, review }: {
-  id: string; status: JobStatus; closedAt: Date | null; visible: Review[]; party: Party; other: string; review: Act;
+export function ReviewPanel({ id, status, closedAt, visible, party, other, review, report }: {
+  id: string; status: JobStatus; closedAt: Date | null; visible: Review[]; party: Party; other: string; review: Act; report: Act;
 }) {
   if (status !== 'closed' || !closedAt) {
     if (status === 'declined' || status === 'cancelled') return null;
@@ -64,7 +64,21 @@ export function ReviewPanel({ id, status, closedAt, visible, party, other, revie
       <summary>Review <small>{meta}</small></summary>
       <div className="thread">
         {mine && quote('Your review', mine)}
-        {theirs && quote(`${other}’s review`, theirs)}
+        {mine?.hidden && <p className="hint">Tradepost moderation removed your review. {other} no longer sees it.</p>}
+        {theirs && !theirs.hidden && quote(`${other}’s review`, theirs)}
+        {theirs?.hidden && <p className="hint">Tradepost moderation removed {other}&apos;s review after your report.</p>}
+        {theirs?.reportedAt && !theirs.hidden && <p className="hint">{theirs.moderatedAt ? 'You reported this review. Tradepost staff reviewed it and kept it up.' : 'You reported this review. Tradepost staff will keep or remove it.'}</p>}
+        {theirs && !theirs.reportedAt && (
+          <details>
+            <summary>Report this review</summary>
+            <ActionForm action={report}>
+              <input type="hidden" name="id" value={id} />
+              <label>What is wrong with it? <textarea name="reason" required maxLength={1000} rows={2} placeholder="Abusive, false, or about someone else" /></label>
+              <p className="hint">Tradepost staff read the report and either keep the review or remove it. You can report it once.</p>
+              <button type="submit" className="secondary">Send report</button>
+            </ActionForm>
+          </details>
+        )}
         {mine && !theirs && <p className="hint">You&apos;ve reviewed. Theirs appears when they submit, or on {day(ends)}. Yours stays hidden from them until then.</p>}
         {mine && theirs && <p className="hint">Both reviews are published.</p>}
         {!mine && !open && <p className="hint">The 14-day review window closed on {day(ends)}.</p>}

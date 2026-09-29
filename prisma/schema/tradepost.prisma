@@ -146,9 +146,16 @@ model Review {
   body        String    @default("")
   createdAt   DateTime  @default(now()) @db.Timestamptz(6)
   publishedAt DateTime? @db.Timestamptz(6)
+  // D-024 (F-16): the other party reports a published review; a platform admin keeps or hides it.
+  reportedAt   DateTime? @db.Timestamptz(6)
+  reportReason String?
+  moderatedAt  DateTime? @db.Timestamptz(6)
+  moderatedBy  String?   @db.Uuid // the platform admin
+  hidden       Boolean   @default(false)
 
   @@unique([jobId, by])
   @@index([publishedAt])
+  @@index([reportedAt])
 }
 
 // P0-6: one per job. Opened with the job's move to `disputed`; resolved with its move to `closed`.

@@ -4,7 +4,7 @@ import { ActionForm } from '@/core/ui/action-form';
 import { AUTO_CONFIRM_MS } from '@/lib/jobs';
 import { clientDb, reviewsVisibleTo } from '@/lib/tenancy';
 import { THREAD } from '@/lib/threads';
-import { addStatement, cancelJob, confirmJob, disputeJob, reviewPro, sendMessage, withdrawJob } from './actions';
+import { addStatement, cancelJob, confirmJob, disputeJob, reportReviewOfMe, reviewPro, sendMessage, withdrawJob } from './actions';
 import { $, day, family, Money, nextMove, Pill, projected, projectedCancel, shortId } from './card';
 import { DisputePanel, ReviewPanel, ThreadPanel } from './panels';
 import { Poll } from './poll';
@@ -54,7 +54,7 @@ export default async function Bookings() {
               {j.status === 'declined' && <Link className="button secondary" href="/search">Find another pro</Link>}
             </div>
             <DisputePanel id={j.id} status={j.status} amountCents={j.amountCents} open={disputeJob} add={addStatement} />
-            <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="client" other={pro} review={reviewPro} />
+            <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="client" other={pro} review={reviewPro} report={reportReviewOfMe} />
             <ThreadPanel id={j.id} status={j.status} messages={j.messages} party="client" other={pro} send={sendMessage} />
           </section>
         );

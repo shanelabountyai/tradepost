@@ -1,15 +1,14 @@
 # NEXT
 
 Queue, in order:
-0. **This item — D-023, saved searches + new-match notifications: done.** Details in `docs/decisions.md`.
-   A client saves a search from `/search` (`/searches` lists and removes them); a cron pass
-   (`matchNewSavedSearches` in `src/lib/saved-searches.ts`, wired into `src/app/cron-jobs.ts`) emails once
-   per pass when a new listing matches, via the existing outbox. Gate: lint/typecheck/drift/check-modules
-   clean, `npm test` 227/227, `npm run test:e2e` 10/10.
-1. **Next up — one PRD P1 item remains unbuilt: admin moderation queue for reported reviews (F-16).**
-   Provider earnings (D-018), cancellation fees (D-022) and saved searches (D-023) are the three P1 items
-   done from the PRD's original four; F-16 is the last one. After it, all four P1 nice-to-haves are done
-   and the project is back to closure-deliverable maintenance only (see docs/RELEASE_NOTES.md).
+0. **This item — D-024, admin moderation queue for reported reviews (F-16): done.** Details in
+   `docs/decisions.md`. The party a published review is about reports it from the job's review panel; a
+   platform admin keeps or removes it at `/admin/reviews`; removing a client's review takes its stars out of
+   the pro's rating. Gate: lint/typecheck/drift/check-modules clean, `npm test` 232/232, `npm run test:e2e` 10/10.
+1. **All four PRD P1 nice-to-haves are now done** (D-018, D-022, D-023, D-024). The project is back to
+   closure-deliverable maintenance only (see docs/RELEASE_NOTES.md). Worth doing next: refresh the exec brief
+   and DEMO.md with the four P1 features, and a quick browser click-through of `/admin/reviews` and the report
+   form (no e2e spec covers them).
 
 **Upstream candidates** (raise when the foundation repo is next open): the `requireOrg` 404 patch (in
 `FOUNDATION_PATCHES.md`). Also: let a clone list its own module-dependent tests for

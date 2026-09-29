@@ -25,6 +25,7 @@ export default async function Disputes() {
   return (
     <main>
       <h1>Open disputes</h1>
+      <p className="hint"><Link href="/admin/reviews">Reported reviews</Link></p>
       {!jobs.length && (
         <section className="empty">
           <h2>No open disputes</h2>

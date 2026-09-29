@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { audit } from '@/core/audit';
 import { orgAction, ref } from '@/core/authz/action';
 import { submitStatement, transition, type Transition } from '@/lib/jobs';
-import { submitReview } from '@/lib/reviews';
+import { reportTheirReview, submitReview } from '@/lib/reviews';
 import { manageAction } from '@/lib/roles';
 import { providerDb } from '@/lib/tenancy';
 import { postMessage } from '@/lib/threads';
@@ -44,6 +44,16 @@ export const reviewClient = manageAction(
   async (ctx, { id, stars, body }) => {
     await submitReview(providerDb(ctx).job, id, 'provider', stars, body);
     await audit(ctx, 'review.submit', { targetType: 'job', targetId: id });
+    redirect(`/o/${ctx.slug}/jobs`);
+  },
+);
+
+// D-024 (F-16): report the client's published review of this provider to Tradepost moderation.
+export const reportReviewOfUs = manageAction(
+  z.object({ id: ref('job'), reason: z.string().trim().min(1, 'Say what is wrong with it.').max(1000) }),
+  async (ctx, { id, reason }) => {
+    await reportTheirReview(providerDb(ctx).job, id, 'provider', reason);
+    await audit(ctx, 'review.report', { targetType: 'job', targetId: id });
     redirect(`/o/${ctx.slug}/jobs`);
   },
 );

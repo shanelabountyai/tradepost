@@ -8,7 +8,7 @@ import { canManage } from '@/lib/roles';
 import { providerDb, reviewsVisibleTo } from '@/lib/tenancy';
 import { THREAD } from '@/lib/threads';
 import {
-  acceptJob, addStatementAsProvider, cancelJobAsProvider, completeJob, declineJob, disputeJobAsProvider, reviewClient, sendMessageAsProvider, startJob,
+  acceptJob, addStatementAsProvider, cancelJobAsProvider, completeJob, declineJob, disputeJobAsProvider, reportReviewOfUs, reviewClient, sendMessageAsProvider, startJob,
 } from './actions';
 
 export const metadata = { title: 'Jobs' };
@@ -54,7 +54,7 @@ export default async function Jobs({ params }: { params: Promise<{ org: string }
           </div>
         )}
         {manage && <DisputePanel id={j.id} status={j.status} amountCents={j.amountCents} open={disputeJobAsProvider.bind(null, ctx.slug)} add={addStatementAsProvider.bind(null, ctx.slug)} />}
-        {manage && <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" other={client} review={reviewClient.bind(null, ctx.slug)} />}
+        {manage && <ReviewPanel id={j.id} status={j.status} closedAt={j.closedAt} visible={j.reviews} party="provider" other={client} review={reviewClient.bind(null, ctx.slug)} report={reportReviewOfUs.bind(null, ctx.slug)} />}
         <ThreadPanel id={j.id} status={j.status} messages={j.messages} party="provider" other={client} send={sendMessageAsProvider.bind(null, ctx.slug)} />
       </section>
     );

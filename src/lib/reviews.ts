@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { now } from '@/core/clock';
 import { Refused } from '@/core/errors';
 import type { Party } from '@/generated/prisma/enums';
-import { publishReviews, reviewsDue, type providerDb } from '@/lib/tenancy';
+import { publishReviews, reportReview, reviewsDue, type providerDb } from '@/lib/tenancy';
 
 // P0-5: blind mutual reviews. Written through the caller's scoped job client, so a foreign job is
 // notFound; read only through reviewsVisibleTo (src/lib/tenancy.ts), which hides the other party's
@@ -29,4 +29,10 @@ export async function publishDueReviews() {
   const due = await reviewsDue(new Date(now().getTime() - REVIEW_WINDOW_MS));
   for (const j of due) await publishReviews(j.id, false);
   return { published: due.length };
+}
+
+/** D-024 (F-16): `by` reports the other party's published review of them; a platform admin then keeps or hides it. */
+export async function reportTheirReview(jobs: Jobs, id: string, by: Party, reason: string) {
+  if (!(await jobs.findFirst({ where: { id }, select: { id: true } }))) notFound();
+  if (!(await reportReview(id, by === 'client' ? 'provider' : 'client', reason))) throw new Refused('There is no published review here to report, or it is already reported.');
 }

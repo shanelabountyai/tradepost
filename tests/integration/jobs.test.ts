@@ -124,7 +124,7 @@ describe('lifecycle', () => {
   it('the provider cannot release: no action for it, and transition() rejects the actor', async () => {
     await run('accept', 'start', 'complete');
     expect(Object.keys(providerActions).sort()).toEqual([
-      'acceptJob', 'addStatementAsProvider', 'cancelJobAsProvider', 'completeJob', 'declineJob', 'disputeJobAsProvider', 'reviewClient', 'sendMessageAsProvider', 'startJob',
+      'acceptJob', 'addStatementAsProvider', 'cancelJobAsProvider', 'completeJob', 'declineJob', 'disputeJobAsProvider', 'reportReviewOfUs', 'reviewClient', 'sendMessageAsProvider', 'startJob',
     ]);
     await expect(transition(P.pro, P.j.id, 'confirm', 'provider')).rejects.toThrow(/cannot confirm/);
     expect((await job()).status).toBe('completed');

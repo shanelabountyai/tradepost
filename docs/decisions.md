@@ -648,3 +648,36 @@ lat/lng-only limit `/search` itself has (D-020 added geocoding to the listing fo
 `npm test` 227/227 (4 new in `tests/integration/saved-searches.test.ts`: save/delete with cross-user 404,
 a match-and-never-again cron case, a radius/rating skip case, and a no-backfill-on-save case).
 `npm run test:e2e` 10/10 (no e2e spec exercises search or saved searches; none needed updating).
+
+## D-024 — admin moderation queue for reported reviews (2026-09-29)
+
+The last PRD P1 item (F-16). The party a published review is about reports it from the review panel on its
+own job; a platform admin keeps it or removes it at `/admin/reviews` (linked from `/admin/disputes`).
+
+- **Report state lives on `Review`, not a report table.** A review has exactly one possible reporter — the
+  other party of the job, the only other person who can read it — so `reportedAt`, `reportReason`,
+  `moderatedAt`, `moderatedBy` and `hidden` are columns. One report per review; a kept review cannot be
+  reported again.
+- **Blind is preserved.** Only a *published* review can be reported (`reportReview`'s `publishedAt: { not:
+  null }` guard), so a report can never confirm that an unpublished review exists. Tested.
+- **Hiding a client's review takes its stars back out of `ProviderRating`,** in the same transaction as the
+  moderation and its audit event (`review.hide` / `review.keep`). The `moderatedAt: null` guard makes a
+  racing second admin a no-op ("already handled"), so stars come out once. The pro's review of a client
+  never counted, so hiding it touches no rating.
+- **A hidden review is still returned by `reviewsVisibleTo`, flagged `hidden`, and rendered as "removed".**
+  Filtering it out of the query would hide nothing from anyone (its author and the reporter both saw it)
+  and would make the reporter's panel wrongly say it is still waiting on the other side's review.
+- **Guards:** client side is `userAction` through `clientDb`, provider side is `manageAction` (owner/admin,
+  like reviewing, D-009) through `providerDb` — a foreign job is notFound. The admin action is `notRef`
+  (cross-provider by design, same reasoning as `resolveDispute`) behind `requirePlatformAdmin` (MFA).
+  All raw `review` queries are in `src/lib/tenancy.ts`, so the tenancy lint needed no change.
+
+**Not done:** no notification to either party when a report is resolved (the panel shows the outcome); no
+report reason categories; no public review surface exists yet, so "hidden" only affects the rating and
+the panels.
+
+**Gate:** lint (0 errors, same pre-existing upstream warning), typecheck, drift and `check-modules` clean;
+`prisma migrate diff` against the test DB is empty. `npm test` 232/232 (5 new in
+`tests/integration/review-moderation.test.ts`; `jobs.test.ts`'s provider-action list gained
+`reportReviewOfUs`). `npm run test:e2e` 10/10 (no e2e spec exercises reviews or `/admin`; the production
+build compiles both new surfaces, but they were not click-tested in a browser).
