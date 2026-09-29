@@ -542,3 +542,35 @@ Test data cleaned up afterward.
 **Gate:** lint (0 errors, same pre-existing upstream warning), typecheck, drift and `check-modules` clean.
 `npm test` 218/218 (3 new, `tests/unit/geocode.test.ts`). `npm run test:e2e` 10/10 (no e2e spec exercises
 the listing form; none needed updating).
+
+## D-021 — provider SMS contact number (2026-09-29)
+
+D-018's other deferred item: the outbox already supported SMS (`sendSms` in `src/modules/notifications/sms.ts`,
+shipped with the foundation), but no phone number existed anywhere to send to. Went with a per-org contact
+number rather than a per-member one — `Membership` and `User` are both template-owned (`core.prisma`), so
+neither can carry a `phone` column without a foundation patch; an org-level number, set once by an owner/admin,
+covers the actual need (SMS for job/message notifications) without touching either.
+
+- **`prisma/schema/tradepost.prisma`:** new `OrgContact { orgId @id, phone }` — one row per org, same shape as
+  `BillingAccount` (core-owned, not clone-owned, but the same "keyed and read only by `ctx.orgId`, never a
+  foreign id" pattern). **`prisma/schema/core.prisma`:** added `contact OrgContact? // app` to `Org`'s back-relations
+  — the drift checker excuses `+` lines on `Org` marked `// app` (`foundation-drift.ts`), the same mechanism
+  `rating`/`listings`/`jobs` already used, so this needed no `FOUNDATION_PATCHES.md` entry.
+- **Not routed through `src/lib/tenancy.ts`:** `OrgContact` isn't in `tests/unit/tenancy-lint.test.ts`'s `MODELS`
+  list, deliberately — like `BillingAccount`, it's addressed only by `ctx.orgId` from an authenticated guard, never
+  by a row id a caller could swap to another org's, so there's no cross-tenant read/write to guard against.
+- **`src/app/o/[org]/settings/contact/`** (new, clone-owned — only `settings/members|billing|danger` are
+  template-owned): `setContactPhone`/`clearContactPhone`, both `manageAction` (owner/admin only, D-009's pattern,
+  same as listings). Phone validated as E.164 (`+15125550100`) since that's what Twilio's REST API and
+  `SMS_SANDBOX_TO` already expect (`src/modules/notifications/sms.ts`) — no new format invented.
+- **`src/lib/notify.ts`:** `notifyProvider` now also SMSes the org's contact number when one is on file, riding
+  the same `notice` template and outbox as the email fan-out (one `send(channel, ...)` helper, not a duplicate
+  SMS path). A missing/failed SMS is caught and logged the same as email (`notify.failed`, never the number —
+  INV-13) so it can never fail the job/message action it rides with.
+- **Nav:** added a "Contact number" link to `src/app/o/[org]/layout.tsx` (clone-owned; only the subpaths are
+  template-owned, not the layout itself).
+
+**Gate:** lint (0 errors, same pre-existing upstream warning), typecheck, drift and `check-modules` clean.
+`npm test` 221/221 (3 new: `tests/integration/contact.test.ts`, plus one added to the `notifications` describe
+in `tests/integration/jobs.test.ts` asserting both an email and an SMS row land in the outbox when a contact
+number is set). `npm run test:e2e` 10/10 (no e2e spec exercises org settings; none needed updating).

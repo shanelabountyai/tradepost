@@ -33,6 +33,14 @@ enum ServiceCategory {
   landscaping
 }
 
+// A provider's SMS contact number (D-021), same shape as BillingAccount: one row per org, keyed and
+// read/written by ctx.orgId only (never a foreign id), so it needs no tenancy.ts scoping.
+model OrgContact {
+  orgId String @id @db.Uuid
+  org   Org    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  phone String // E.164, e.g. +15125550100
+}
+
 // A provider's public rating. Written only by review publication (P0-3); read by search.
 // Mean = sum / count, so there is no stored float to drift from the reviews.
 model ProviderRating {

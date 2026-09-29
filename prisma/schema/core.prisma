@@ -89,6 +89,7 @@ model Org {
   listings       Listing[] // app
   jobs           Job[] // app
   rating         ProviderRating? // app
+  contact        OrgContact? // app
 }
 
 model Membership {

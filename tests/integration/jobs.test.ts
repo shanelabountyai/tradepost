@@ -420,4 +420,13 @@ describe('notifications (P1: email minimum)', () => {
     await postMessage(P.cli, P.j.id, 'client', 'Thanks!');
     expect((await outbox()).at(-1)).toEqual({ to: P.u.email, orgId: P.p.id });
   });
+
+  // D-021: a second channel, only when the provider has set a contact number.
+  it('also SMSes the provider contact number when one is on file', async () => {
+    await db.orgContact.create({ data: { orgId: P.p.id, phone: '+15125550100' } });
+    await signInAs(P.c.id);
+    await requestJob({ listingId: P.l.id, date: '2026-10-06' }).catch(outcome);
+    const channels = (await db.outbox.findMany({ select: { channel: true, to: true } })).map((r) => [r.channel, r.to]);
+    expect(channels).toEqual(expect.arrayContaining([['email', P.u.email], ['sms', '+15125550100']]));
+  });
 });
