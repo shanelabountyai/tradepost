@@ -492,3 +492,53 @@ subject/body was enough for "email, minimum" and avoided touching the template-o
 `npm test` 215/215 (1 new, in `tests/integration/jobs.test.ts`: request/accept/message each land the
 right recipient in the outbox). `npm run test:e2e` 10/10.
 cross-provider leak check). `npm run test:e2e` 10/10.
+
+## D-020 — geocoded address entry on the listing form (2026-09-29)
+
+Replaced the two raw lat/lng number inputs with a single `address` text field, geocoded server-side.
+
+- **`src/lib/geocode.ts`** (new): `geocode(address)` calls the U.S. Census Geocoder
+  (`geocoding.geo.census.gov/geocoder/locations/onelineaddress`) — public, keyless, no dependency and no
+  secret to provision, so nothing was added to `src/core/env.ts` (a template-owned file) or
+  `.env.example`. Returns `{lat, lng}` or `null` (no match / non-OK response); a 5s `AbortSignal.timeout`
+  keeps a slow or hung DNS/network failure from stalling the action indefinitely. Response shape verified
+  against the real API (`coordinates.y` = lat, `.x` = lng) before writing the parser, not just against a
+  mocked shape.
+- **`prisma/schema/tradepost.prisma` + migration `20260929000000_listing_address`:** `Listing.address
+  String?` — nullable so existing rows (created under the old lat/lng-only form) need no backfill. Stored
+  alongside `lat`/`lng` so an edit can prefill the address and re-geocoding happens once per save.
+- **`actions.ts`:** `listing` schema's `lat`/`lng` fields replaced with `address` (`min(1)`, matching the
+  old fields' bare presence check — no format regex). `toData` takes a separately-computed `{lat, lng}`
+  point. `geocodeOrRefuse` throws `Refused` on a `null` geocode result, shown in the form the same way any
+  other domain refusal is.
+- **`updateListing` ownership check moved before the geocode call**, via `providerDb(ctx).listing.findFirstOrThrow(...).catch(notFoundOnP2025)`, one extra scoped read. Not just tidiness: the invariant
+  harness (`tests/invariants/harness.ts`) fuzzes every action's own-org and cross-org calls with a
+  schema-conforming but meaningless string (`'x'`) for any plain string field, including `address`. With
+  the geocode call first, that meaningless address failed to resolve identically whether the row's id
+  belonged to the caller's org or a foreign one — INV-02 (`every id from org B`) requires those two
+  outcomes to differ (tenancy 404 vs. reaching business logic), so the harness would have flagged a false
+  positive. Checking ownership first means a foreign id 404s before geocoding is ever attempted, exactly
+  matching pre-existing behavior; a legitimate address only reaches the network call once ownership is
+  confirmed.
+- **`tests/helpers/geocode.ts`** (new, registered in `vitest.config.ts`'s `setupFiles`): globally mocks
+  `@/lib/geocode` to a fixed point, so no test — including the invariant harness's per-action fuzz run —
+  depends on network access. `tests/unit/geocode.test.ts` calls `vi.unmock` to test the real
+  implementation against a mocked `fetch` (the same `vi.spyOn(globalThis, 'fetch')` idiom already used in
+  `tests/integration/outbox.test.ts`).
+- **Edit form UX:** the address input prefills from the stored value; a `Current location: {lat}, {lng}`
+  note (4 decimal places) shows the last geocoded point so editing an unrelated field (price, radius)
+  doesn't require re-typing or guessing whether the address changed.
+
+**Known ceiling:** every save re-geocodes the address, even if it is unchanged from the stored value —
+one extra network call per edit, not a stored-value diff. Acceptable at this scale (a free, unrate-limited
+government API, no per-call cost); the upgrade if the geocoder ever becomes paid or rate-limited is to
+skip the call when the submitted address equals the stored one.
+
+Manually verified end-to-end against the real Census API (not just the mocked unit test) via the demo
+owner account: submitted `1600 Pennsylvania Ave NW, Washington DC 20500` through the live form, got
+`38.8987, -77.0352` back, and confirmed it round-trips through the edit form's "Current location" note.
+Test data cleaned up afterward.
+
+**Gate:** lint (0 errors, same pre-existing upstream warning), typecheck, drift and `check-modules` clean.
+`npm test` 218/218 (3 new, `tests/unit/geocode.test.ts`). `npm run test:e2e` 10/10 (no e2e spec exercises
+the listing form; none needed updating).

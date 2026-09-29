@@ -6,6 +6,7 @@ import { ref } from '@/core/authz/action';
 import { notFoundOnP2025, type OrgCtx } from '@/core/authz/guards';
 import { Refused } from '@/core/errors';
 import { ServiceCategory } from '@/generated/prisma/enums';
+import { geocode } from '@/lib/geocode';
 import { manageAction } from '@/lib/roles';
 import { providerDb } from '@/lib/tenancy';
 
@@ -21,28 +22,37 @@ const listing = z
     title: z.string().trim().min(1, 'Give the listing a title.').max(120),
     category: z.enum(ServiceCategory),
     description: z.string().trim().max(2000).default(''),
-    lat: z.coerce.number().min(-90).max(90),
-    lng: z.coerce.number().min(-180).max(180),
+    address: z.string().trim().min(1, 'Enter the service address.').max(200),
     radiusMiles: z.coerce.number().int().min(1, 'The service radius is at least 1 mile.').max(200),
     rate: z.coerce.number().int('Whole dollars only.').min(1, 'The base rate is at least $1.').max(100_000),
     ...dayFields,
   })
   .refine((i) => Object.keys(dayFields).some((d) => i[d as Day]), 'Pick at least one day you work.');
 
-const toData = ({ rate, ...i }: z.infer<typeof listing>) => ({
-  title: i.title, category: i.category, description: i.description, lat: i.lat, lng: i.lng, radiusMiles: i.radiusMiles,
+const toData = ({ rate, ...i }: z.infer<typeof listing>, point: { lat: number; lng: number }) => ({
+  title: i.title, category: i.category, description: i.description, address: i.address, ...point, radiusMiles: i.radiusMiles,
   rateCents: rate * 100,
   days: [0, 1, 2, 3, 4, 5, 6].filter((d) => i[`d${d}` as Day]),
 });
 
+async function geocodeOrRefuse(address: string) {
+  const point = await geocode(address);
+  if (!point) throw new Refused('Could not find that address. Try adding a city, state and ZIP code.');
+  return point;
+}
+
 export const addListing = manageAction(listing, async (ctx, i) => {
-  const l = await providerDb(ctx).listing.create({ data: { ...toData(i), orgId: ctx.orgId } });
+  const point = await geocodeOrRefuse(i.address);
+  const l = await providerDb(ctx).listing.create({ data: { ...toData(i, point), orgId: ctx.orgId } });
   await audit(ctx, 'listing.created', { targetType: 'listing', targetId: l.id });
   redirect(page(ctx));
 });
 
 export const updateListing = manageAction(listing.and(z.object({ id: ref('listing') })), async (ctx, i) => {
-  await providerDb(ctx).listing.update({ where: { id: i.id }, data: toData(i) }).catch(notFoundOnP2025);
+  // Ownership checked (and a foreign id 404s) before the geocode call, so a cross-org id never reaches it.
+  await providerDb(ctx).listing.findFirstOrThrow({ where: { id: i.id } }).catch(notFoundOnP2025);
+  const point = await geocodeOrRefuse(i.address);
+  await providerDb(ctx).listing.update({ where: { id: i.id }, data: toData(i, point) }).catch(notFoundOnP2025);
   await audit(ctx, 'listing.updated', { targetType: 'listing', targetId: i.id });
   redirect(page(ctx));
 });

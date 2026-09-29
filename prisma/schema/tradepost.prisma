@@ -8,7 +8,9 @@ model Listing {
   title       String
   category    ServiceCategory
   description String          @default("")
-  // service area: a circle around (lat, lng); search matches a client inside it (haversine)
+  // service area: a circle around (lat, lng), geocoded server-side from `address` on save; search
+  // matches a client inside it (haversine). address is nullable only for rows written before D-020.
+  address     String?
   lat         Float
   lng         Float
   radiusMiles Int

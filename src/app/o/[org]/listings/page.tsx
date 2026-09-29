@@ -8,7 +8,10 @@ import { addListing, deleteListing, updateListing } from './actions';
 export const metadata = { title: 'Listings' };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-type Values = { title: string; category: string; description: string; lat: number; lng: number; radiusMiles: number; rateCents: number; days: number[] };
+type Values = {
+  title: string; category: string; description: string; address: string | null; lat: number; lng: number;
+  radiusMiles: number; rateCents: number; days: number[];
+};
 
 function Fields({ v }: { v?: Values }) {
   return (
@@ -23,8 +26,10 @@ function Fields({ v }: { v?: Values }) {
       <label>Description <textarea name="description" maxLength={2000} defaultValue={v?.description} /></label>
       <fieldset>
         <legend>Service area</legend>
-        <label>Latitude <input name="lat" type="number" step="any" min={-90} max={90} required defaultValue={v?.lat} /></label>
-        <label>Longitude <input name="lng" type="number" step="any" min={-180} max={180} required defaultValue={v?.lng} /></label>
+        <label>
+          Address <input name="address" required maxLength={200} placeholder="123 Main St, Austin TX 78701" defaultValue={v?.address ?? undefined} />
+        </label>
+        {v && <p className="note">Current location: {v.lat.toFixed(4)}, {v.lng.toFixed(4)}</p>}
         <label>Radius (miles) <input name="radiusMiles" type="number" min={1} max={200} required defaultValue={v?.radiusMiles ?? 10} /></label>
       </fieldset>
       <label>Base rate ($) <input name="rate" type="number" min={1} step={1} required defaultValue={v ? v.rateCents / 100 : undefined} /></label>
