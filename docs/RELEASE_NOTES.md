@@ -6,7 +6,7 @@ Closure deliverables (D-017), so nothing published gets lost in the gallery.
 |---|---|---|
 | Tradepost in Brief (exec brief) | https://claude.ai/artifact/C5N7FvEoizZszzzszTLc2Q | Non-engineering one-pager, v3. Refreshed 2026-09-29 with the four P1 features (D-018, D-022, D-023, D-024); numbers re-verified against a clean sweep that day (232 tests, 10 e2e). **Still private — share it from the page's Share menu before the queued LinkedIn posts that link to it go out.** |
 | Lab Intelligence Ledger | https://claude.ai/artifact/Ai5xKScgT2sWtqXRQ1ZA8i | Cross-project LinkedIn draft queue. Tradepost has 6 drafts as of 2026-09-28 (posts 76–81): blind reviews, no provider payout release, dispute split, an AI red-team finding a delete-guard race, a negative-control test catching a cron bug, and an upstream drift-checker false positive. |
-| Claude Code build log | https://claude.ai/artifact/28KeGV3xfBwcBuoMEQjFMj | Cross-project tracker. Tradepost's row (`marketplace`) is not yet filled in there — repo/write-up/demo links can be synced from this file. |
+| Claude Code build log | https://claude.ai/artifact/28KeGV3xfBwcBuoMEQjFMj | Cross-project tracker. Tradepost's row (`marketplace`) synced 2026-10-02: status shipped; PRD, repo, CMO write-up (exec brief) and demo (DEMO.md) linked. No technical WRITEUP.md exists and nothing is deployed, so those two stay empty. |
 
 ## Cost review
 
