@@ -13,7 +13,7 @@ deploy hook are all in place. What's left:
    "live" section: the URL, and the password lives in `.env.production.local`), and the build log's `live` field
    (https://claude.ai/artifact/28KeGV3xfBwcBuoMEQjFMj, row `marketplace`).
 
-Done this session: `WRITEUP.md` (now linked in the build log is pending: update its `writeup` field in step 3 too).
+Done this session: `WRITEUP.md`, already linked in the build log's `writeup` field.
 Gate: lint, typecheck, drift clean; `npm test` 235/235; `npm run test:e2e` 10/10; the gate checked on a local production
 build (401 / 200 as expected).
 
