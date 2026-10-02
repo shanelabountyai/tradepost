@@ -712,3 +712,40 @@ features are candidate material but weren't turned into drafts this session.
 
 **Gate:** lint (0 errors, same pre-existing upstream warning), typecheck clean. `npm test` 232/232 (no new
 tests — doc-only). `npm run test:e2e` 10/10.
+
+## D-026 — technical write-up, and a password-gated live demo (2026-10-02)
+
+**Chose (Shane, 2026-10-02):** write `WRITEUP.md`, and deploy behind a shared password with a daily cron. Picked over
+the same deploy with the hourly cron kept, and over the write-up alone with no deploy. Opus for both.
+
+- **`WRITEUP.md`** follows `~/Projects/writeup-template.md`. Hardest bug: the D-012 → D-014 provider-delete chain.
+- **Demo gate.** `src/proxy.ts` + `src/lib/demo-gate.ts`, brought across from callboard (and showcall's D-032 before
+  it): HTTP Basic, any username, `DEMO_ACCESS_PASSWORD` compared in constant time. On Vercel, a missing password fails
+  closed (503). Off Vercel there is no gate, so dev, vitest and e2e are unchanged. Open without the password:
+  `/api/cron` (`CRON_SECRET`) and `/api/webhooks/stripe` (Stripe's signature). **Why a password:** `DEMO_MODE=1`
+  makes `/demo` sign anyone in as a provider owner or as the platform admin, who settles frozen funds.
+  `src/proxy.ts` is template-owned, so it is listed in `FOUNDATION_PATCHES.md`. **Upstream candidate:** a demo gate.
+- **`playwright.config.ts` blanks `DEMO_ACCESS_PASSWORD`** for the test server. `next build`/`next start` read
+  `.env.production.local` (callboard hit this: every e2e request got a 401).
+- **Cost controls from day one:** `vercel.json` `git.deploymentEnabled: false` (the 2026-09-29 all-projects rule) with
+  a `main-manual` deploy hook. The cron runs `0 6 * * *` instead of hourly, so a 72h auto-confirm and the 14-day review
+  publication land up to a day late, which a demo does not notice. Neon project `tradepost` (`icy-wave-14607298`,
+  aws-us-east-2) is capped at **0.25–1 CU**, with the default 5-minute suspend. Email and SMS are off
+  (`EMAIL_ENABLED=0`, `SMS_ENABLED=0`): sign-in is `/demo` only.
+- **Created by the session:** the Neon project, the Vercel project `tradepost` (Git-linked, domain
+  `tradepost.labintelligence.co` added), and the deploy hook. **Run by Shane** (a session is refused `vercel env`
+  writes, DNS changes and production deploys): `scripts/deploy-prod.sh`. It sets the production env (generated
+  `AUTH_SECRET`/`CRON_SECRET`, the Neon URLs and his password) in Vercel and in `.env.production.local`, which must
+  match, because the seed seals the demo TOTP secret with `AUTH_SECRET`. It then migrates, runs `seed:prod` (the demo
+  accounts plus the seeded month), adds the Cloudflare A record (DNS-only) and fires the hook.
+- **Production holds the demo data on purpose**, as with callboard and showcall: synthetic and public by design.
+
+**Cost review update (supersedes D-017's rows):**
+
+| Item | Decision | Restore note |
+|---|---|---|
+| Vercel project `tradepost` | keep. Builds only from the hook | Delete the `git` key in `vercel.json` to restore push-to-deploy, when the demo needs to track `main` |
+| `vercel.json` cron | daily `0 6 * * *` | `0 * * * *` if real users ever depend on 72h auto-confirm timing |
+| Neon `tradepost` | keep, 0.25–1 CU, auto-suspend | Raise the CU cap only if the demo is visibly slow. Re-measure about 2026-10-09: `neonctl projects get icy-wave-14607298 --org-id org-morning-smoke-06224724 --output json` (`compute_time_seconds`) |
+
+**Baseline:** $0 before this deploy. The expected cost is one daily cron wake plus demo visits, well under $1/month.
