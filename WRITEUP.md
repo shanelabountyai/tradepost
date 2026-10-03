@@ -1,9 +1,9 @@
 # Project Write-Up: Tradepost
 
 **Repo:** https://github.com/shanelabountyai/tradepost
-**Live demo:** not deployed yet
+**Live demo:** https://tradepost.labintelligence.co (shared password; sign in at `/demo`)
 **Built with:** Claude Code + Next.js 16, Prisma 7, Postgres, on the SaaS foundation template (v1.0.1 → v1.2.0)
-**Status:** Shipped 2026-09-29 · Last synced: 2026-10-02
+**Status:** Shipped 2026-09-29 · Last synced: 2026-10-03
 
 ---
 

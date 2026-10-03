@@ -1,12 +1,22 @@
 # Tradepost demo script
 
 A two-sided home-services marketplace. Clients book pros; the platform holds the money until the work is
-confirmed; disputes go to a platform admin. Runs locally on **:4200**. It is not deployed.
+confirmed; disputes go to a platform admin. Runs locally on **:4200**, and live at https://tradepost.labintelligence.co (see *Live demo* below).
 
 Every command and screen below was run against the seeded database on 2026-09-26, and every command was re-run
 clean on 2026-09-28 against `v1.2.0` (D-016): health check, `/demo`, `npm test` (212/212), lint, typecheck and drift.
 The four P1 screens below (stops 2a, 3a, 5a, 6a) were added 2026-09-29 after D-018/D-022/D-023/D-024 and
 click-tested in a live browser against the seeded database that day; `npm test` is 232/232 as of D-024.
+
+## Live demo
+
+https://tradepost.labintelligence.co, behind a shared password: any username, and the password is
+`DEMO_ACCESS_PASSWORD` in `.env.production.local` (gitignored, written by `scripts/deploy-prod.sh`). Then open
+`/demo` and pick an account. Production was seeded with `seed:prod`, so it also holds the seeded month: search shows
+"Month listing" rows next to the two Brightline and Fernway listings. Verified 2026-10-03: 401 without the password
+on `/`, `/demo`, `/api/health`; 200 with it; the Brightline owner, the client and `ops@` sign in, and `ops@` reaches
+`/admin/disputes`; `/api/cron` returns 401 without `CRON_SECRET`. Redeploys go through the `main-manual` deploy hook
+only (D-026).
 
 ## Setup (once, about 2 minutes)
 

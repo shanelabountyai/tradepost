@@ -749,3 +749,19 @@ the same deploy with the hourly cron kept, and over the write-up alone with no d
 | Neon `tradepost` | keep, 0.25–1 CU, auto-suspend | Raise the CU cap only if the demo is visibly slow. Re-measure about 2026-10-09: `neonctl projects get icy-wave-14607298 --org-id org-morning-smoke-06224724 --output json` (`compute_time_seconds`) |
 
 **Baseline:** $0 before this deploy. The expected cost is one daily cron wake plus demo visits, well under $1/month.
+
+## D-027 — the live demo is up at tradepost.labintelligence.co (2026-10-03)
+
+D-026's deploy, finished. Shane ran `scripts/deploy-prod.sh`. It stopped after the seed printed its account list,
+before `== DNS:`, so he ran the script's tail (from the DNS step on: lines 50 to the end) by hand. That reused the env
+already written to Vercel and `.env.production.local`, and generated no new secrets. A full re-run would have
+regenerated `AUTH_SECRET`, which breaks the TOTP accounts the seed sealed with the old one, and the script's guard
+refuses to run while `.env.production.local` exists anyway.
+
+**Verified on production:** 401 without the password on `/`, `/demo`, `/api/health`; 200 with it; `/api/health`
+returns `{"ok":true}`. The Brightline owner, `client@` and `ops@` sign in through `/demo/signin` (303, then
+`/onboarding` 200), and `ops@` reaches `/admin/disputes`. `/api/cron` returns 401 without `CRON_SECRET` and 200 with
+it. Production holds the seeded month too (`seed:prod`), so search shows "Month listing" rows (noted in DEMO.md).
+
+**Note:** `.env.production.local` has unquoted `&` in the Neon URLs, so it cannot be `source`d in a shell. Read single
+values with `grep '^NAME=' | cut -d= -f2-`.
