@@ -7,8 +7,6 @@
 Open follow-ups, none blocking:
 - **Re-measure Neon about 2026-10-09** (D-026's cost row): `neonctl projects get icy-wave-14607298 --org-id
   org-morning-smoke-06224724 --output json` → `compute_time_seconds`.
-- **Reconnect Vercel Git** (D-028): the repo was deleted and recreated, so reconnect it in project `tradepost` → Settings → Git,
-  and check the deploy hook still fires.
 - **Template merges bring `audit/` back** (D-028). Delete it in the merge commit before pushing the public repo.
 - **Upstream candidates** for when the foundation repo is next open: the `requireOrg` 404 patch and the demo gate
   (`src/proxy.ts`), both in `FOUNDATION_PATCHES.md`; let a clone list its own module-dependent tests for

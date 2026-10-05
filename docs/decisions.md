@@ -786,6 +786,6 @@ ticket-deflection. The history scan found no literal secrets, only that text.
 **Consequences:**
 - The SHAs quoted in older docs (D-0xx entries, `NEXT.md` history) no longer resolve. Anchor links on `main` are unaffected.
 - **Vercel's Git connection pointed at the deleted repo.** Reconnect it in project `tradepost` → Settings → Git. The
-  deploy hook D-026 relies on may need regenerating.
+  deploy hook D-026 relies on may need regenerating. Done 2026-10-04: Shane reconnected Git, and the API shows the link `shanelabountyai/tradepost` (production branch `main`) with the `main-manual` hook on `main`.
 - **A future `git merge template/main` brings `audit/` back.** Delete it in the merge commit before pushing. The
   template repo itself stays private.
