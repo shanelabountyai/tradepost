@@ -7,7 +7,11 @@
 Open follow-ups, none blocking:
 - **Re-measure Neon about 2026-10-09** (D-026's cost row): `neonctl projects get icy-wave-14607298 --org-id
   org-morning-smoke-06224724 --output json` → `compute_time_seconds`.
-- **The exec brief is still private.** Share it before the queued LinkedIn posts that link to it go out.
+- **Exec brief: still private, and this is now urgent.** Posts 76–79 are out (or scheduled through 10-05) and link to
+  it. Share it from https://claude.ai/artifact/C5N7FvEoizZszzzszTLc2Q → Share menu. There is no tool for this; it is a manual step.
+- **Reconnect Vercel Git** (D-028): the repo was deleted and recreated, so reconnect it in project `tradepost` → Settings → Git,
+  and check the deploy hook still fires.
+- **Template merges bring `audit/` back** (D-028). Delete it in the merge commit before pushing the public repo.
 - **Upstream candidates** for when the foundation repo is next open: the `requireOrg` 404 patch and the demo gate
   (`src/proxy.ts`), both in `FOUNDATION_PATCHES.md`; let a clone list its own module-dependent tests for
   `foundation:check-modules`; run `beforeDelete` in its own transaction (D-014); let the INV-01..04 harness express a

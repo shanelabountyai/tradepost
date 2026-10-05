@@ -765,3 +765,27 @@ it. Production holds the seeded month too (`seed:prod`), so search shows "Month 
 
 **Note:** `.env.production.local` has unquoted `&` in the Neon URLs, so it cannot be `source`d in a shell. Read single
 values with `grep '^NAME=' | cut -d= -f2-`.
+
+## D-028 — repo made public, `audit/` purged from history (2026-10-04)
+
+Every queued LinkedIn post (76–86) links to `docs/decisions.md` on GitHub, and the repo was private, so each of those
+links returned a 404. Shane chose to make the repo public.
+
+**Blocker found first:** `audit/` came over from the foundation template at M0. It is a security audit of the whole
+portfolio, naming findings in deployed projects (showcall, rental, handhold) and a live credential location in
+ticket-deflection. The history scan found no literal secrets, only that text.
+
+**What was done:**
+1. Mirror backup at `~/Projects/_backups/tradepost-pre-filter-20261003-0909.git`, which still contains `audit/`.
+2. `git filter-repo --path audit/ --invert-paths`. Every SHA changed (the old `febf776` is now `9bcaae0`).
+3. GitHub keeps orphaned commits, so after a force-push `/tree/febf776/audit` still returned 200. To clear them, the
+   repo was deleted, recreated public under the same name, and the clean `main` was pushed. Verified: the old SHA now
+   returns 404 (422 from the API) and `blob/main/docs/decisions.md` returns 200. The repo had no issues, PRs, Actions
+   secrets or webhooks to lose.
+
+**Consequences:**
+- The SHAs quoted in older docs (D-0xx entries, `NEXT.md` history) no longer resolve. Anchor links on `main` are unaffected.
+- **Vercel's Git connection pointed at the deleted repo.** Reconnect it in project `tradepost` → Settings → Git. The
+  deploy hook D-026 relies on may need regenerating.
+- **A future `git merge template/main` brings `audit/` back.** Delete it in the merge commit before pushing. The
+  template repo itself stays private.
