@@ -750,6 +750,8 @@ the same deploy with the hourly cron kept, and over the write-up alone with no d
 
 **Baseline:** $0 before this deploy. The expected cost is one daily cron wake plus demo visits, well under $1/month.
 
+**Re-measure 2026-10-13:** Neon `tradepost` (icy-wave-14607298), default 5-minute auto-suspend: `compute_time_seconds` 847, `active_time_seconds` 3340 (0.93 h active in the October window, 0.25 CU). Vercel 2026-09-13 to 2026-10-13: tradepost $0.03 (8 build minutes, 90%). Under $1/month as expected; no change.
+
 ## D-027 — the live demo is up at tradepost.labintelligence.co (2026-10-03)
 
 D-026's deploy, finished. Shane ran `scripts/deploy-prod.sh`. It stopped after the seed printed its account list,
