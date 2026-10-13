@@ -57,6 +57,13 @@ const ledger = async () => (await db.ledgerEntry.findMany({ where: { jobId: P.j.
 const job = () => db.job.findUniqueOrThrow({ where: { id: P.j.id } });
 // A second job for the same client and listing needs another date while J is live (F-02).
 const OTHER_DAY = new Date('2026-10-06');
+// requestJob refuses past dates, so a bookable day is computed at the moment of use. A date
+// written down here passes until the calendar reaches it, then fails with no code change.
+const nextDay = (dow: number) => {
+  const d = new Date(now());
+  do d.setUTCDate(d.getUTCDate() + 1); while (d.getUTCDay() !== dow);
+  return d.toISOString().slice(0, 10);
+};
 const outcome = (e: unknown) => (e instanceof NavSignal ? e.kind : e instanceof Refused ? e.message : e);
 
 describe('ledger rows (pure)', () => {
@@ -192,7 +199,7 @@ describe('requestJob', () => {
 
   it('books at the listing rate on a day the pro works', async () => {
     await signInAs(P.c.id);
-    expect(await requestJob(at('2026-10-06')).catch(outcome)).toBe('redirect');
+    expect(await requestJob(at(nextDay(2))).catch(outcome)).toBe('redirect');
     const mine = await clientDb({ userId: P.c.id }).job.findMany({ where: { id: { not: P.j.id } } });
     expect(mine.map((j) => [j.status, j.amountCents, j.orgId])).toEqual([['requested', 8500, P.p.id]]);
   });
@@ -201,7 +208,7 @@ describe('requestJob', () => {
     await signInAs(P.c.id);
     const today = now().toISOString().slice(0, 10);
     expect(await requestJob(at('2020-01-06'))).toEqual({ error: 'Pick today or a later date.' });
-    expect(await requestJob(at('2026-10-04'))).toEqual({ error: 'This pro does not work that day.' }); // a Sunday
+    expect(await requestJob(at(nextDay(0)))).toEqual({ error: 'This pro does not work that day.' }); // a Sunday
     await signInAs(P.u.id, { mfa: true });
     expect(await requestJob(at(today))).toEqual({ error: 'You cannot book your own business.' });
     expect(await db.job.count()).toBe(1);
@@ -209,7 +216,8 @@ describe('requestJob', () => {
 
   it('F-02: one live job per client, listing and date; a declined one frees the date', async () => {
     await signInAs(P.c.id);
-    const date = JOB.date.toISOString().slice(0, 10); // J's date, still `requested`
+    const date = nextDay(1); // J moved to a coming Monday (the fixture's is fixed), still `requested`
+    await db.job.update({ where: { id: P.j.id }, data: { date: new Date(date) } });
     const dup = { error: 'You already requested this pro for that date. See it in Your jobs.' };
     expect(await requestJob(at(date))).toEqual(dup);
     await run('decline');
@@ -424,7 +432,7 @@ describe('notifications (P1: email minimum)', () => {
 
   it('a request notifies the provider; a provider move and a client message each notify the other side', async () => {
     await signInAs(P.c.id);
-    expect(await requestJob({ listingId: P.l.id, date: '2026-10-06' }).catch(outcome)).toBe('redirect');
+    expect(await requestJob({ listingId: P.l.id, date: nextDay(2) }).catch(outcome)).toBe('redirect');
     expect(await outbox()).toEqual([{ to: P.u.email, orgId: P.p.id }]);
 
     await run('accept'); // provider acts -> notifies the client, not itself
@@ -441,7 +449,7 @@ describe('notifications (P1: email minimum)', () => {
   it('also SMSes the provider contact number when one is on file', async () => {
     await db.orgContact.create({ data: { orgId: P.p.id, phone: '+15125550100' } });
     await signInAs(P.c.id);
-    await requestJob({ listingId: P.l.id, date: '2026-10-06' }).catch(outcome);
+    await requestJob({ listingId: P.l.id, date: nextDay(2) }).catch(outcome);
     const channels = (await db.outbox.findMany({ select: { channel: true, to: true } })).map((r) => [r.channel, r.to]);
     expect(channels).toEqual(expect.arrayContaining([['email', P.u.email], ['sms', '+15125550100']]));
   });
