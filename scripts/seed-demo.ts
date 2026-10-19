@@ -9,8 +9,9 @@ import { clientDb, providerDb } from '@/lib/tenancy';
 import { postMessage } from '@/lib/threads';
 
 // Demo data (spec §7, D-8). Only this script sets `isDemo`, and the cloud guard in `@/core/db` refuses a
-// non-local database unless ALLOW_CLOUD_DB=1. The TOTP secret is a fixed, public demo value: known
-// credentials are fine because this seed cannot reach production.
+// non-local database unless ALLOW_CLOUD_DB=1. The TOTP secret is a fixed, public demo value. That is safe
+// only because of two rules in core/auth/session.ts (foundation v1.2.1): an `isDemo` user's session resolves
+// only while DEMO_MODE=1, and a demo session cannot change its email or TOTP.
 // Tradepost's demo: two providers, a client, a platform admin, and the capstone (PRD phasing): one job
 // run twice through the real transitions, the happy path and then dispute → split, each with a thread.
 // Six demo users, four TOTP-enrolled: tests/invariants/inv-27-demo.test.ts counts them.

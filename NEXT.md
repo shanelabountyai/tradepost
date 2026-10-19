@@ -12,3 +12,7 @@ Open follow-ups, none blocking:
   (`src/proxy.ts`), both in `FOUNDATION_PATCHES.md`; let a clone list its own module-dependent tests for
   `foundation:check-modules`; run `beforeDelete` in its own transaction (D-014); let the INV-01..04 harness express a
   platform-admin-only action; a `ref`-like tag for an id that is deliberately cross-org.
+
+**2026-10-19, foundation upgrade:** saas-foundation v1.2.0 → v1.3.0 (v1.2.1 + v1.3.0 security releases, due
+2026-10-21) is on branch `foundation-v1.3.0`, awaiting review and merge. Ported as a diff (no shared history). After
+merge: `npm run db:migrate` (adds `scorekeeper` to `Role`), then update tradepost's row in the template's `CLONES.md`.
