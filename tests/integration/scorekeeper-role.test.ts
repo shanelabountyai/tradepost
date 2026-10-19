@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AuthzError, requireOrg } from '@/core/authz/guards';
+import { requireOrg } from '@/core/authz/guards';
 import { can, type Permission } from '@/core/authz/permissions';
 import { db } from '@/core/db';
 import { createInvite } from '@/core/tenancy/invites';
@@ -11,6 +11,7 @@ import { actAs, addMember, makeOrg, roleOf } from '../helpers/org';
 beforeEach(resetAuthTables);
 
 // D-21 (v1.3.0): a scorekeeper holds results.write and nothing else, and is not MFA-gated.
+// Tradepost: a missing permission is notFound, not AuthzError (F-04 patch to requireOrg, FOUNDATION_PATCHES.md).
 const all: Permission[] = ['org.update', 'org.delete', 'members.manage', 'billing.manage', 'share.create', 'share.revoke', 'audit.read', 'results.write'];
 
 describe('scorekeeper role (D-21)', () => {
@@ -27,11 +28,11 @@ describe('scorekeeper role (D-21)', () => {
     await db.membership.create({ data: { orgId: org.id, userId: sk.id, role: 'scorekeeper' } });
     await signInAs(sk.id);
     await expect(requireOrg(org.slug, 'results.write')).resolves.toMatchObject({ role: 'scorekeeper' });
-    for (const p of all.filter((x) => x !== 'results.write')) await expect(requireOrg(org.slug, p)).rejects.toBeInstanceOf(AuthzError);
+    for (const p of all.filter((x) => x !== 'results.write')) await expect(requireOrg(org.slug, p)).rejects.toMatchObject({ kind: 'notFound' });
 
     const member = await addMember(org.id, 'member', 'member@example.test');
     await signInAs(member.id, { mfa: true });
-    await expect(requireOrg(org.slug, 'results.write')).rejects.toBeInstanceOf(AuthzError);
+    await expect(requireOrg(org.slug, 'results.write')).rejects.toMatchObject({ kind: 'notFound' });
   });
 
   it('an admin invites, assigns and removes a scorekeeper', async () => {

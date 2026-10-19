@@ -32,16 +32,16 @@ async function viaDemo(email: string) {
 
 describe('a demo session cannot destroy the demo or change who owns it', () => {
   it('org and account deletion, email change and TOTP changes are refused, on a fresh session', async () => {
-    await seedDemo();
-    await viaDemo('owner@acme.demo.test');
-    const ctx = await requireOrg('acme');
-    await expect(deleteOrg(ctx, 'acme')).rejects.toThrow(DEMO);
+    await seedDemo(); // tradepost's seed: brightline has an owner, admin and member; six demo users, four with TOTP
+    await viaDemo('owner@brightline.demo.test');
+    const ctx = await requireOrg('brightline');
+    await expect(deleteOrg(ctx, 'brightline')).rejects.toThrow(DEMO);
     await expect(requestEmailChange(ctx.session, 'mine@example.test')).rejects.toThrow(DEMO);
     await expect(disableTotp()).rejects.toThrow(DEMO);
 
-    const admin = await viaDemo('admin@acme.demo.test');
+    const admin = await viaDemo('admin@brightline.demo.test');
     await expect(deleteAccount((await currentSession())!, admin.email)).rejects.toThrow(DEMO);
-    await viaDemo('member@acme.demo.test');
+    await viaDemo('member@brightline.demo.test');
     await expect(enrolTotp()).rejects.toThrow(DEMO);
 
     // Every /demo visitor shares the account, so "sign out everywhere" would sign the others out.
@@ -50,7 +50,7 @@ describe('a demo session cannot destroy the demo or change who owns it', () => {
     expect(await signOutAll({})).toEqual({ error: expect.stringMatching(DEMO) });
     expect(await db.session.count()).toBe(sessions);
 
-    expect(await db.org.count({ where: { slug: 'acme' } })).toBe(1);
+    expect(await db.org.count({ where: { slug: 'brightline' } })).toBe(1);
     expect(await db.user.count({ where: { isDemo: true, totpEnrolledAt: { not: null } } })).toBe(4);
     expect(await db.user.count({ where: { isDemo: true } })).toBe(6);
     expect(await db.loginToken.count()).toBe(0);
@@ -58,34 +58,31 @@ describe('a demo session cannot destroy the demo or change who owns it', () => {
 
   it('inviting, re-roling, removing and leaving are refused', async () => {
     await seedDemo();
-    const member = await demoUser('member@acme.demo.test');
-    await viaDemo('owner@acme.demo.test');
-    const ctx = await requireOrg('acme');
+    const member = await demoUser('member@brightline.demo.test');
+    await viaDemo('owner@brightline.demo.test');
+    const ctx = await requireOrg('brightline');
     await expect(createInvite(ctx, 'mine@example.test', 'owner')).rejects.toThrow(DEMO);
     await expect(changeRole(ctx, member.id, 'owner')).rejects.toThrow(DEMO);
     await expect(removeMember(ctx, member.id)).rejects.toThrow(DEMO);
-    await viaDemo('member@acme.demo.test');
-    await expect(removeMember(await requireOrg('acme'), member.id)).rejects.toThrow(DEMO);
+    await viaDemo('member@brightline.demo.test');
+    await expect(removeMember(await requireOrg('brightline'), member.id)).rejects.toThrow(DEMO);
 
     expect(await db.invite.count()).toBe(0);
-    expect(await db.membership.count({ where: { org: { slug: 'acme' } } })).toBe(3);
+    expect(await db.membership.count({ where: { org: { slug: 'brightline' } } })).toBe(3);
     expect(await db.membership.count({ where: { userId: member.id, role: 'member' } })).toBe(1);
   });
 
   // Owner decision 2026-10-13. Billing is a removable module, so its half is in tests/invariants/inv-12-webhooks.test.ts.
-  it('creating an org is refused; adding a project and sharing it still work', async () => {
+  // Tradepost: the template's second half (a demo session can still add and share a project) is dropped,
+  // because this clone removed the template's projects pages; tradepost has no `@/app/o/[org]/projects`.
+  it('creating an org is refused', async () => {
     await seedDemo();
-    await viaDemo('owner@acme.demo.test');
+    await viaDemo('owner@brightline.demo.test');
     const orgs = await db.org.count();
     await expect(createOrg((await currentSession())!, 'Mine')).rejects.toThrow(DEMO);
     const { startOrg } = await import('@/app/onboarding/actions');
     expect(await startOrg({ name: 'Mine' })).toEqual({ error: expect.stringMatching(DEMO) });
     expect(await db.org.count()).toBe(orgs);
-
-    const { addProject, shareProject } = await import('@/app/o/[org]/projects/actions');
-    await expect(addProject('acme', { name: 'Demo project' })).rejects.toThrow('redirect /o/acme/projects');
-    const p = await db.project.findFirstOrThrow({ where: { name: 'Demo project' } });
-    expect(await shareProject('acme', { id: p.id, days: '7' })).toEqual({ notice: expect.stringContaining('/s/') });
   });
 
   it('a real account is not affected', async () => {
@@ -100,7 +97,7 @@ describe('a demo session cannot destroy the demo or change who owns it', () => {
 describe('demo accounts stop working when DEMO_MODE is off', () => {
   it('no session resolves for a demo user, however it was made; a real user is unaffected', async () => {
     await seedDemo();
-    const owner = await demoUser('owner@acme.demo.test');
+    const owner = await demoUser('owner@brightline.demo.test');
     const token = (await demoSignIn(owner.id))!;
     expect(await sessionFor(token, { DEMO_MODE: '1' })).not.toBeNull();
     expect(await sessionFor(token, {})).toBeNull();
