@@ -13,6 +13,14 @@ Open follow-ups, none blocking:
   `foundation:check-modules`; run `beforeDelete` in its own transaction (D-014); let the INV-01..04 harness express a
   platform-admin-only action; a `ref`-like tag for an id that is deliberately cross-org.
 
-**2026-10-19, foundation upgrade:** saas-foundation v1.2.0 → v1.3.0 (v1.2.1 + v1.3.0 security releases, due
-2026-10-21) is on branch `foundation-v1.3.0`, awaiting review and merge. Ported as a diff (no shared history). After
-merge: `npm run db:migrate` (adds `scorekeeper` to `Role`), then update tradepost's row in the template's `CLONES.md`.
+**2026-11-04, foundation upgrade:** saas-foundation v1.3.0 → v1.4.0 (includes v1.3.1, the `security:` release:
+next and eslint-config-next 16.3.6 → 16.3.8, due 2026-10-27, late) is on branch `foundation-v1.4.0`, awaiting review
+and merge. Ported as a diff (no shared history), like v1.3.0 (PR #1, merged 2026-10-19). Conflicts:
+- `src/app/org-hooks.ts`: kept tradepost's `beforeOrgDelete` (D-012/D-014 refusal), added the template's
+  `filterListedOrgs` with its default `return orgs`. Tradepost hides no orgs, so no clone test was added.
+- `tests/integration/review-2026-10-12-demo.test.ts`: took the template's v1.3.1 text, which now looks the demo org up
+  by membership (tradepost's brightline adaptation is no longer needed). Did not take the new
+  `review-2026-10-12-demo-projects.test.ts`: tradepost removed `/o/[org]/projects` (D-16, as the changelog says).
+- `FOUNDATION_PATCHES.md`: dropped the `inv-12-webhooks.test.ts` row; v1.3.1 ships the identical text upstream.
+  The F-04 `guards.ts` patch stays and is the only drift (`foundation:drift` clean against v1.4.0).
+No migration. After merge, update tradepost's row in the template's `CLONES.md` to v1.4.0.
