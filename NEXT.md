@@ -25,3 +25,4 @@ and merge. Ported as a diff (no shared history), like v1.3.0 (PR #1, merged 2026
   The F-04 `guards.ts` patch stays and is the only drift (`foundation:drift` clean against v1.4.0).
 No migration. After merge, update tradepost's row in the template's `CLONES.md` to v1.4.1.
 **2026-11-04, security:** the same branch now also carries saas-foundation v1.4.1 (next 16.4.5 for the critical Image Optimization RCE, zod 4.6.7, prisma 7.10.1; due 2026-11-11), applied as a diff with no conflicts; redeploy as soon as it merges.
+**2026-11-04:** branch `foundation-v1.5.0` takes saas-foundation v1.5.0 (vitest 2.1 -> 5.1, dev-only, not security:), hand-ported as a diff with no conflicts. Gate: 308/308 tests, drift clean, build green. After merge, update tradepost's row in the template's `CLONES.md` to v1.5.0.
