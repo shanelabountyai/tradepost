@@ -8,7 +8,8 @@ export const JOB = { date: new Date('2026-10-05'), amountCents: 8500 };
 // CLONE-OWNED. The INV-01..04 harness seeds these rows in both fixture orgs, so it can drive
 // actions whose inputs use ref('<model>') for the clone's own tables. Return { model: id } for
 // one row of each model, owned by `org.orgId`. Ids are fixed: the harness reseeds before every call
-// but generates each input once, so a random id would be stale by the time the action runs.
+// but generates each input once, so a random id would be stale by the time the action runs. INV-29 (RLS enforce)
+// calls it too, so every org-owned clone table has rows to scope.
 export async function seedApp(org: { orgId: string; userId: string }, key: 'a' | 'b'): Promise<Record<string, string>> {
   const id = (n: number) => `00000000-0000-4000-8000-${key === 'a' ? 1 : 2}${String(n).padStart(11, '0')}`;
   const listing = await db.listing.create({ data: { ...LISTING, id: id(50), orgId: org.orgId, title: `Listing ${key}` } });

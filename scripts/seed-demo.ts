@@ -2,6 +2,8 @@ import { pathToFileURL } from 'node:url';
 import { advanceClock, now } from '@/core/clock';
 import { sealSecret } from '@/core/auth/secret-box';
 import { db } from '@/core/db'; // importing it is what refuses a cloud database (INV-18, INV-27)
+import { asSystem } from '@/core/db/rls';
+import type { PrismaClient } from '@/generated/prisma/client';
 import type { Role, ServiceCategory } from '@/generated/prisma/enums';
 import { AUTO_CONFIRM_MS, autoConfirmDue, settleDispute, submitStatement, transition, TRANSITIONS, type Transition } from '@/lib/jobs';
 import { submitReview } from '@/lib/reviews';
@@ -37,7 +39,10 @@ const demoUser = async (email: string, name: string, mfa: boolean) => {
   return db.user.upsert({ where: { email }, create: { email, ...data }, update: data });
 };
 
-export async function seedDemo() {
+// Cross-org (cross-org.ts): writes several orgs, so it runs as the system role. With RLS off that is the app client.
+export const seedDemo = () => asSystem(seedWith);
+
+async function seedWith(db: PrismaClient) {
   const printed: string[] = [];
   const orgIds: Record<string, string> = {};
   for (const p of PROVIDERS) {
