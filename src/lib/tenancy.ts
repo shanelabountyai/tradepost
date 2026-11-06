@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { audit } from '@/core/audit';
 import { now } from '@/core/clock';
 import { db } from '@/core/db';
+import type { ExportTable } from '@/core/tenancy/export';
 import type { Prisma } from '@/generated/prisma/client';
 import type { LedgerKind, ServiceCategory } from '@/generated/prisma/enums';
 
@@ -250,3 +251,10 @@ export function publishReviews(jobId: string, onlyIfBoth: boolean) {
 export function reviewsDue(closedBefore: Date) {
   return db.job.findMany({ where: { closedAt: { lte: closedBefore }, reviews: { some: { publishedAt: null } } }, select: { id: true } });
 }
+
+// The org data export (v1.6.0, src/app/export-hooks.ts): a provider's own listings and jobs. Ledger, review, dispute
+// and message rows have no orgId and are not exported.
+export const providerExportTables: readonly ExportTable[] = [
+  { name: 'Listing', rows: (tx, orgId) => tx.listing.findMany({ where: { orgId }, select: { id: true, title: true, category: true, description: true, address: true, lat: true, lng: true, radiusMiles: true, rateCents: true, days: true, createdAt: true } }) },
+  { name: 'Job', rows: (tx, orgId) => tx.job.findMany({ where: { orgId }, select: { id: true, clientId: true, listingId: true, date: true, amountCents: true, status: true, completedAt: true, closedAt: true, createdAt: true } }) },
+];

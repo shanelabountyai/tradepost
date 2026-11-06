@@ -791,3 +791,18 @@ ticket-deflection. The history scan found no literal secrets, only that text.
   deploy hook D-026 relies on may need regenerating. Done 2026-10-04: Shane reconnected Git, and the API shows the link `shanelabountyai/tradepost` (production branch `main`) with the `main-manual` hook on `main`.
 - **A future `git merge template/main` brings `audit/` back.** Delete it in the merge commit before pushing. The
   template repo itself stays private.
+
+## D-029 — saas-foundation v1.6.0 taken, every new feature left off (2026-11-06)
+
+**Decision:** hand-port the template diff v1.5.0..v1.6.0 onto `foundation-v1.5.0` (PR #4). RLS stays off (`RLS_MODE`
+unset, no `RLS_ENFORCE` repo variable), `SSO_ENABLED` and `AI_ENABLED` unset; the `sso` and `apikeys` modules are kept.
+
+- **Export (INV-34):** an owner's org export holds `Listing`, `Job` (from `providerExportTables` in `src/lib/tenancy.ts`,
+  so the P0-1 tenancy lint still holds), `OrgContact` and `ProviderRating`. None has a secret, hash or token column.
+  `LedgerEntry`, `Review`, `Dispute` and `Message` have no `orgId` and are not exported; add them if a provider asks.
+- **RLS policies:** `npm run rls:policies` wrote `20261109000000_rls_policies_tradepost` (the template's 19 tables plus
+  the four above). Inert while the runtime role bypasses RLS. Turning enforce on is **not** a config change here:
+  a client reads provider-owned `Job`/`Listing` rows across orgs through `clientDb`/`searchableListings`, which would
+  need `asSystem` or client-side policies first.
+- **`seed:demo`** runs through `asSystem` (INV-32); its `src/lib` calls still use the app client.
+- **Nav:** the org bar gains Audit log, Security, SSO, API keys, and "Delete org" became "Export or delete".
