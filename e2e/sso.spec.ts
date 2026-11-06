@@ -37,7 +37,7 @@ test('an email on a verified SSO domain signs in through the provider and joins 
   await page.getByRole('button', { name: 'Email me a link' }).click();
   await expect(page).toHaveURL(/\/onboarding$/);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
-  await expect(page.getByRole('link', { name: 'SSO e2e' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'SSO e2e' })).toBeVisible(); // tradepost: the header (D-011) links each org too
 
   const { rows } = await db.query('SELECT count(*)::int AS n FROM "LoginToken" WHERE email = $1', [email]);
   expect(rows[0].n).toBe(0); // no magic link was sent
