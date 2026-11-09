@@ -810,3 +810,7 @@ unset, no `RLS_ENFORCE` repo variable), `SSO_ENABLED` and `AI_ENABLED` unset; th
 ## D-030 — saas-foundation v1.6.1 taken (2026-11-09)
 
 **Decision:** hand-port the template diff v1.6.0..v1.6.1 (`FOUNDATION_VERSION`, `foundation-status.ts`, `cross-org.ts` markers, the foundation-tools test, CHANGELOG). Tradepost keeps billing and notifications, so no marked line is deleted. The F-04 `guards.ts` patch is unchanged. No migration, no env change.
+
+## D-031 — saas-foundation v1.6.2 taken (2026-11-09)
+
+**Decision:** hand-port the template diff v1.6.1..v1.6.2 (rls:policies module guards, check-modules fresh `git init`, CI enforce leg DB name from `DATABASE_URL`, README, the foundation-tools test, `Org.orgEvents` rename in core.prisma, CHANGELOG). Tradepost has no `Org.events` clash, so the rename is a relation name only (no migration). e2e: tradepost already seeded through `npm run seed:demo:test` in a child process; it now also finds the nav by its "Audit log" link, keeping its demo orgs. The F-04 `guards.ts` patch is unchanged. No env change.
