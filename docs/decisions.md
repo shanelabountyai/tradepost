@@ -806,3 +806,7 @@ unset, no `RLS_ENFORCE` repo variable), `SSO_ENABLED` and `AI_ENABLED` unset; th
   need `asSystem` or client-side policies first.
 - **`seed:demo`** runs through `asSystem` (INV-32); its `src/lib` calls still use the app client.
 - **Nav:** the org bar gains Audit log, Security, SSO, API keys, and "Delete org" became "Export or delete".
+
+## D-030 — saas-foundation v1.6.1 taken (2026-11-09)
+
+**Decision:** hand-port the template diff v1.6.0..v1.6.1 (`FOUNDATION_VERSION`, `foundation-status.ts`, `cross-org.ts` markers, the foundation-tools test, CHANGELOG). Tradepost keeps billing and notifications, so no marked line is deleted. The F-04 `guards.ts` patch is unchanged. No migration, no env change.
