@@ -2,7 +2,7 @@ import { drainOutbox, sweepOutbox } from '@/modules/notifications/outbox'; // no
 import { autoConfirmDue } from '@/lib/jobs';
 import { publishDueReviews } from '@/lib/reviews';
 import { matchNewSavedSearches } from '@/lib/saved-searches';
-import { sweepSsoStates } from '@/modules/sso/hooks'; // sso
+import { recheckSsoDomains, sweepSsoStates } from '@/modules/sso/hooks'; // sso
 import { cronWebhooks } from '@/modules/apikeys/webhooks'; // apikeys
 
 // Clone-owned (plan §3.2): /api/cron calls this after its own core sweeps. A clone adds its jobs here,
@@ -14,6 +14,7 @@ export async function cronJobs(): Promise<Record<string, unknown>> {
   jobs.reviews = await publishDueReviews(); // P0-5: publish reviews 14d after close
   jobs.savedSearches = await matchNewSavedSearches(); // P1 (F-20): email new-listing matches
   jobs.ssoStates = await sweepSsoStates(); // sso
+  jobs.ssoDomains = await recheckSsoDomains(); // sso
   jobs.webhooks = await cronWebhooks(); // apikeys
   return jobs;
 }
